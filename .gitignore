@@ -1,0 +1,15 @@
+node_modules/
+.next/
+out/
+.env
+.env.local
+data/
+auth_info_jarvis/
+auth_info/
+*.log
+.DS_Store
+package-lock.json
+yarn.lock
+backup_*/
+estrutura*.txt
+estrutura*.csv

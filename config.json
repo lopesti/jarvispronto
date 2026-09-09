@@ -1,0 +1,29 @@
+
+{
+  "produtos": [
+    {
+      "id": 1,
+      "nome": "Volumetrão 1",
+      "preco": 87.90,
+      "preco_texto": "R$ 87,90",
+      "link": "https://mpago.la/18bSnE1"
+    },
+    {
+      "id": 2,
+      "nome": "Volumetrão 2",
+      "preco": 129.90,
+      "preco_texto": "R$ 129,90",
+      "link": "https://mpago.la/2FYH1aH"
+    },
+    {
+      "id": 3,
+      "nome": "Volumetrão 3",
+      "preco": 149.90,
+      "preco_texto": "R$ 149,90",
+      "link": "https://mpago.la/2mrRZJN"
+    }
+  ],
+  "entrega": "📦 Entregamos em até 7 dias úteis para todo Brasil. Me manda seu CEP?",
+  "funciona": "⚙️ Simples: você escolhe o kit → pagamento aprovado → enviamos no mesmo dia.",
+  "padrao": "👋 Olá! Temos 3 opções: Volumetrão 1 (R$ 87,90), Volumetrão 2 (R$ 129,90) e Volumetrão 3 (R$ 149,90). Qual você quer saber mais?"
+}

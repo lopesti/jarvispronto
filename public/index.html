@@ -1,0 +1,1912 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Jarvis CRM</title>
+<meta name="theme-color" content="#060912">
+<link rel="manifest" href="/manifest.json">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   DESIGN SYSTEM — Jarvis CRM
+   Paleta: Obsidian + Electric Blue + Neon Mint + Amber alert
+   Fonte display: Inter 800 / corpo: Inter 400-600 / mono: JetBrains
+   Assinatura: sidebar com pulse indicator + lead cards com score ring
+============================================================ */
+:root {
+  /* Core */
+  --bg-void:       #060912;
+  --bg-base:       #0C1120;
+  --bg-surface:    #111827;
+  --bg-elevated:   #1A2235;
+  --bg-hover:      #1F2A40;
+  --bg-active:     #243049;
+
+  /* Borders */
+  --border-subtle: rgba(255,255,255,0.05);
+  --border-normal: rgba(255,255,255,0.09);
+  --border-strong: rgba(255,255,255,0.15);
+
+  /* Brand */
+  --blue:          #3B82F6;
+  --blue-bright:   #60A5FA;
+  --blue-dim:      rgba(59,130,246,0.15);
+  --mint:          #10B981;
+  --mint-bright:   #34D399;
+  --mint-dim:      rgba(16,185,129,0.15);
+  --amber:         #F59E0B;
+  --amber-dim:     rgba(245,158,11,0.15);
+  --red:           #EF4444;
+  --red-dim:       rgba(239,68,68,0.15);
+  --purple:        #8B5CF6;
+  --purple-dim:    rgba(139,92,246,0.15);
+
+  /* Text */
+  --text-primary:   #F1F5F9;
+  --text-secondary: #94A3B8;
+  --text-muted:     #475569;
+  --text-disabled:  #334155;
+
+  /* Sizing */
+  --sidebar-w: 240px;
+  --radius-sm: 6px;
+  --radius:    10px;
+  --radius-lg: 16px;
+  --radius-xl: 22px;
+
+  /* Shadows */
+  --shadow-card: 0 1px 3px rgba(0,0,0,.4), 0 4px 16px rgba(0,0,0,.25);
+  --shadow-modal: 0 8px 40px rgba(0,0,0,.6);
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: 'Inter', sans-serif;
+  background: var(--bg-void);
+  color: var(--text-primary);
+  display: flex;
+  min-height: 100vh;
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── SCROLLBAR ──────────────────────────────────────────── */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 99px; }
+
+/* ── SIDEBAR ────────────────────────────────────────────── */
+.sidebar {
+  width: var(--sidebar-w);
+  background: var(--bg-base);
+  border-right: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  position: fixed;
+  top: 0; left: 0; bottom: 0;
+  z-index: 100;
+  transition: transform .25s ease;
+}
+
+.sidebar-logo {
+  padding: 20px 20px 16px;
+  border-bottom: 1px solid var(--border-subtle);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.logo-icon {
+  width: 32px; height: 32px;
+  background: linear-gradient(135deg, var(--blue), var(--purple));
+  border-radius: var(--radius-sm);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+.logo-text {
+  font-weight: 800;
+  font-size: 15px;
+  letter-spacing: -.3px;
+  color: var(--text-primary);
+}
+.logo-version {
+  font-size: 10px;
+  color: var(--text-muted);
+  font-weight: 500;
+  letter-spacing: .5px;
+  text-transform: uppercase;
+}
+
+/* WA Status pill */
+.wa-status-pill {
+  margin: 12px 16px;
+  padding: 7px 12px;
+  border-radius: var(--radius);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+.wa-dot {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: var(--mint);
+  flex-shrink: 0;
+  position: relative;
+}
+.wa-dot::after {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border-radius: 50%;
+  border: 1px solid var(--mint);
+  opacity: .4;
+  animation: pulse-ring 2s ease-out infinite;
+}
+.wa-dot.offline { background: var(--red); }
+.wa-dot.offline::after { border-color: var(--red); }
+@keyframes pulse-ring {
+  0%   { transform: scale(.8); opacity: .6; }
+  100% { transform: scale(1.8); opacity: 0; }
+}
+
+/* Nav */
+.nav-section {
+  padding: 8px 10px 4px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .8px;
+  color: var(--text-disabled);
+  padding-left: 14px;
+  margin-top: 6px;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 9px 14px;
+  margin: 1px 6px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 500;
+  transition: background .15s, color .15s;
+  position: relative;
+  user-select: none;
+}
+.nav-item:hover { background: var(--bg-hover); color: var(--text-primary); }
+.nav-item.active {
+  background: var(--bg-active);
+  color: var(--blue-bright);
+}
+.nav-item.active::before {
+  content: '';
+  position: absolute;
+  left: -6px; top: 50%; transform: translateY(-50%);
+  width: 3px; height: 18px;
+  background: var(--blue);
+  border-radius: 0 3px 3px 0;
+}
+.nav-icon { font-size: 15px; width: 18px; text-align: center; flex-shrink: 0; }
+.nav-badge {
+  margin-left: auto;
+  background: var(--red);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 99px;
+  min-width: 18px;
+  text-align: center;
+}
+.nav-badge.blue { background: var(--blue); }
+
+/* Sidebar footer */
+.sidebar-footer {
+  margin-top: auto;
+  padding: 12px 10px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+/* ── MAIN CONTENT ───────────────────────────────────────── */
+.main {
+  flex: 1;
+  margin-left: var(--sidebar-w);
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background: var(--bg-void);
+}
+
+/* Topbar */
+.topbar {
+  height: 52px;
+  background: var(--bg-base);
+  border-bottom: 1px solid var(--border-subtle);
+  display: flex;
+  align-items: center;
+  padding: 0 24px;
+  gap: 16px;
+  position: sticky;
+  top: 0;
+  z-index: 50;
+}
+
+.topbar-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-primary);
+  flex: 1;
+}
+
+.topbar-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-normal);
+  border-radius: var(--radius);
+  padding: 0 12px;
+  height: 34px;
+  width: 240px;
+  transition: border-color .2s;
+}
+.topbar-search:focus-within { border-color: var(--blue); }
+.topbar-search input {
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--text-primary);
+  font-size: 13px;
+  width: 100%;
+}
+.topbar-search input::placeholder { color: var(--text-muted); }
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 14px;
+  height: 32px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  border: none;
+  transition: opacity .15s, transform .1s;
+  white-space: nowrap;
+}
+.btn:active { transform: scale(.97); }
+.btn-primary { background: var(--blue); color: #fff; }
+.btn-primary:hover { opacity: .85; }
+.btn-ghost {
+  background: transparent;
+  color: var(--text-secondary);
+  border: 1px solid var(--border-normal);
+}
+.btn-ghost:hover { background: var(--bg-hover); color: var(--text-primary); }
+.btn-danger { background: var(--red-dim); color: var(--red); border: 1px solid rgba(239,68,68,.2); }
+.btn-danger:hover { background: var(--red); color: #fff; }
+.btn-sm { height: 26px; padding: 0 10px; font-size: 12px; }
+.btn-icon { width: 32px; padding: 0; justify-content: center; }
+
+/* ── PAGE CONTENT ───────────────────────────────────────── */
+.page { display: none; padding: 24px; animation: fadeIn .2s ease; }
+.page.active { display: block; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+
+/* ── CARDS ──────────────────────────────────────────────── */
+.card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  box-shadow: var(--shadow-card);
+}
+
+.card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+.card-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: .6px;
+}
+
+/* ── KPI GRID ───────────────────────────────────────────── */
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 14px;
+  margin-bottom: 24px;
+}
+
+.kpi-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: 18px 20px;
+  position: relative;
+  overflow: hidden;
+  transition: border-color .2s, transform .2s;
+}
+.kpi-card:hover { border-color: var(--border-normal); transform: translateY(-1px); }
+.kpi-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+}
+.kpi-card.blue::before  { background: var(--blue); }
+.kpi-card.mint::before  { background: var(--mint); }
+.kpi-card.amber::before { background: var(--amber); }
+.kpi-card.purple::before{ background: var(--purple); }
+.kpi-card.red::before   { background: var(--red); }
+
+.kpi-icon {
+  width: 34px; height: 34px;
+  border-radius: var(--radius-sm);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 16px;
+  margin-bottom: 12px;
+}
+.kpi-icon.blue   { background: var(--blue-dim);   color: var(--blue-bright); }
+.kpi-icon.mint   { background: var(--mint-dim);   color: var(--mint-bright); }
+.kpi-icon.amber  { background: var(--amber-dim);  color: var(--amber); }
+.kpi-icon.purple { background: var(--purple-dim); color: var(--purple); }
+.kpi-icon.red    { background: var(--red-dim);    color: var(--red); }
+
+.kpi-label { font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 4px; }
+.kpi-value { font-size: 26px; font-weight: 800; color: var(--text-primary); letter-spacing: -1px; line-height: 1; }
+.kpi-sub   { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
+.kpi-trend { font-size: 11px; font-weight: 600; margin-top: 4px; }
+.kpi-trend.up   { color: var(--mint); }
+.kpi-trend.down { color: var(--red); }
+
+/* ── GRID LAYOUTS ───────────────────────────────────────── */
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+.grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+.grid-sidebar { display: grid; grid-template-columns: 1fr 320px; gap: 16px; }
+
+/* ── TABLE ──────────────────────────────────────────────── */
+.table-wrap { overflow-x: auto; border-radius: var(--radius); }
+table { width: 100%; border-collapse: collapse; }
+thead tr { border-bottom: 1px solid var(--border-normal); }
+th {
+  padding: 10px 14px;
+  text-align: left;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: .5px;
+  white-space: nowrap;
+}
+td {
+  padding: 12px 14px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--border-subtle);
+  vertical-align: middle;
+}
+tbody tr:last-child td { border-bottom: none; }
+tbody tr { transition: background .1s; }
+tbody tr:hover td { background: var(--bg-elevated); color: var(--text-primary); }
+
+/* ── BADGES & PILLS ─────────────────────────────────────── */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 99px;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.badge-mint   { background: var(--mint-dim);   color: var(--mint-bright); }
+.badge-blue   { background: var(--blue-dim);   color: var(--blue-bright); }
+.badge-amber  { background: var(--amber-dim);  color: var(--amber); }
+.badge-red    { background: var(--red-dim);    color: var(--red); }
+.badge-purple { background: var(--purple-dim); color: var(--purple); }
+.badge-gray   { background: var(--bg-elevated); color: var(--text-muted); }
+
+/* ── SCORE RING ─────────────────────────────────────────── */
+.score-ring {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 700;
+}
+.score-bar {
+  width: 48px; height: 4px;
+  background: var(--bg-elevated);
+  border-radius: 99px;
+  overflow: hidden;
+}
+.score-fill {
+  height: 100%;
+  border-radius: 99px;
+  transition: width .4s ease;
+}
+
+/* ── PHONE CHIP ─────────────────────────────────────────── */
+.phone-chip {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: var(--text-muted);
+  background: var(--bg-elevated);
+  padding: 2px 7px;
+  border-radius: 4px;
+}
+
+/* ── PIPELINE KANBAN ────────────────────────────────────── */
+.kanban {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+}
+.kanban-col {
+  min-width: 200px;
+  flex-shrink: 0;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+.kanban-header {
+  padding: 12px 14px 10px;
+  border-bottom: 1px solid var(--border-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.kanban-title {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .5px;
+  color: var(--text-secondary);
+}
+.kanban-count {
+  background: var(--bg-elevated);
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 99px;
+}
+.kanban-body { padding: 10px; display: flex; flex-direction: column; gap: 8px; min-height: 80px; }
+.kanban-card {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius);
+  padding: 10px 12px;
+  cursor: pointer;
+  transition: border-color .15s, transform .15s;
+}
+.kanban-card:hover { border-color: var(--blue); transform: translateY(-1px); }
+.kanban-name { font-size: 12px; font-weight: 600; color: var(--text-primary); margin-bottom: 4px; }
+.kanban-meta { font-size: 11px; color: var(--text-muted); display: flex; justify-content: space-between; align-items: center; }
+.kanban-empty { font-size: 11px; color: var(--text-disabled); text-align: center; padding: 16px 0; }
+
+/* ── CONVERSATION VIEWER ────────────────────────────────── */
+.conv-layout {
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  gap: 0;
+  height: calc(100vh - 52px);
+  overflow: hidden;
+}
+.conv-list {
+  border-right: 1px solid var(--border-subtle);
+  overflow-y: auto;
+  background: var(--bg-base);
+}
+.conv-list-header {
+  padding: 16px;
+  border-bottom: 1px solid var(--border-subtle);
+  position: sticky;
+  top: 0;
+  background: var(--bg-base);
+  z-index: 2;
+}
+.conv-item {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border-subtle);
+  cursor: pointer;
+  transition: background .1s;
+  position: relative;
+}
+.conv-item:hover { background: var(--bg-surface); }
+.conv-item.active { background: var(--bg-elevated); }
+.conv-item.active::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 3px;
+  background: var(--blue);
+}
+.conv-item-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 3px; }
+.conv-item-name { font-size: 13px; font-weight: 600; color: var(--text-primary); }
+.conv-item-time { font-size: 11px; color: var(--text-muted); }
+.conv-item-preview { font-size: 12px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 260px; }
+.conv-item-foot { display: flex; align-items: center; justify-content: space-between; margin-top: 4px; }
+
+.conv-main { display: flex; flex-direction: column; overflow: hidden; }
+.conv-header {
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--bg-base);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.conv-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.msg { display: flex; flex-direction: column; max-width: 72%; }
+.msg.user { align-self: flex-end; align-items: flex-end; }
+.msg.assistant { align-self: flex-start; align-items: flex-start; }
+.msg-bubble {
+  padding: 9px 13px;
+  border-radius: 12px;
+  font-size: 13px;
+  line-height: 1.5;
+  word-break: break-word;
+}
+.msg.user .msg-bubble {
+  background: var(--blue);
+  color: #fff;
+  border-bottom-right-radius: 3px;
+}
+.msg.assistant .msg-bubble {
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  border-bottom-left-radius: 3px;
+}
+.msg-time { font-size: 10px; color: var(--text-disabled); margin-top: 3px; padding: 0 4px; }
+
+.conv-input-bar {
+  padding: 12px 20px;
+  border-top: 1px solid var(--border-subtle);
+  background: var(--bg-base);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.conv-input {
+  flex: 1;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-normal);
+  border-radius: var(--radius);
+  padding: 9px 14px;
+  color: var(--text-primary);
+  font-size: 13px;
+  outline: none;
+  font-family: inherit;
+  transition: border-color .2s;
+}
+.conv-input:focus { border-color: var(--blue); }
+.conv-empty {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 10px;
+  color: var(--text-disabled);
+}
+.conv-empty-icon { font-size: 40px; opacity: .3; }
+
+/* ── LOGS ───────────────────────────────────────────────── */
+.log-container {
+  background: var(--bg-void);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius);
+  padding: 14px;
+  height: 460px;
+  overflow-y: auto;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+}
+.log-line { padding: 2px 0; color: var(--text-muted); border-bottom: 1px solid rgba(255,255,255,.02); line-height: 1.6; }
+.log-line.error { color: #FCA5A5; }
+.log-line.warn  { color: #FCD34D; }
+.log-line.info  { color: var(--text-secondary); }
+
+/* ── MODAL ──────────────────────────────────────────────── */
+.modal-overlay {
+  display: none;
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,.6);
+  backdrop-filter: blur(4px);
+  z-index: 1000;
+  align-items: center;
+  justify-content: center;
+}
+.modal-overlay.open { display: flex; }
+.modal {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-normal);
+  border-radius: var(--radius-xl);
+  padding: 28px;
+  width: 480px;
+  max-width: 95vw;
+  box-shadow: var(--shadow-modal);
+  animation: modalIn .2s ease;
+}
+@keyframes modalIn { from { transform: scale(.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+.modal-title { font-size: 16px; font-weight: 700; margin-bottom: 6px; }
+.modal-sub { font-size: 13px; color: var(--text-muted); margin-bottom: 20px; }
+.modal-footer { display: flex; gap: 8px; justify-content: flex-end; margin-top: 20px; }
+
+/* ── FORM ───────────────────────────────────────────────── */
+.field { margin-bottom: 14px; }
+.field label { display: block; font-size: 12px; font-weight: 600; color: var(--text-muted); margin-bottom: 5px; }
+.field input, .field select, .field textarea {
+  width: 100%;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-normal);
+  border-radius: var(--radius-sm);
+  padding: 9px 12px;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-family: inherit;
+  outline: none;
+  transition: border-color .2s;
+}
+.field input:focus, .field select:focus, .field textarea:focus { border-color: var(--blue); }
+.field textarea { resize: vertical; min-height: 80px; }
+
+/* ── LOGIN SCREEN ───────────────────────────────────────── */
+.login-screen {
+  display: none;
+  position: fixed; inset: 0;
+  background: var(--bg-void);
+  z-index: 999;
+  align-items: center;
+  justify-content: center;
+}
+.login-screen.show { display: flex; }
+.login-box {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-normal);
+  border-radius: var(--radius-xl);
+  padding: 36px 40px;
+  width: 380px;
+  box-shadow: var(--shadow-modal);
+}
+.login-logo {
+  display: flex; align-items: center; gap: 10px;
+  margin-bottom: 28px;
+}
+.login-logo-icon {
+  width: 42px; height: 42px;
+  background: linear-gradient(135deg, var(--blue), var(--purple));
+  border-radius: var(--radius);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 20px;
+}
+.login-title { font-size: 22px; font-weight: 800; letter-spacing: -.5px; }
+.login-sub { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+.login-error { background: var(--red-dim); border: 1px solid rgba(239,68,68,.3); border-radius: var(--radius-sm); padding: 9px 12px; font-size: 12px; color: var(--red); margin-bottom: 14px; display: none; }
+.login-btn {
+  width: 100%;
+  height: 42px;
+  background: var(--blue);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  border: none;
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: opacity .15s;
+  margin-top: 4px;
+}
+.login-btn:hover { opacity: .85; }
+
+/* ── TOAST ──────────────────────────────────────────────── */
+.toast-container { position: fixed; bottom: 24px; right: 24px; z-index: 9999; display: flex; flex-direction: column; gap: 8px; }
+.toast {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-normal);
+  border-radius: var(--radius);
+  padding: 12px 16px;
+  font-size: 13px;
+  color: var(--text-primary);
+  box-shadow: var(--shadow-modal);
+  animation: toastIn .2s ease;
+  display: flex; align-items: center; gap: 8px;
+}
+.toast.success { border-color: rgba(16,185,129,.3); }
+.toast.error   { border-color: rgba(239,68,68,.3); }
+@keyframes toastIn { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } }
+
+/* ── AI CENTER ──────────────────────────────────────────── */
+.ai-provider-card {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: 16px 20px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.ai-provider-icon { font-size: 28px; }
+.ai-provider-name { font-size: 14px; font-weight: 700; color: var(--text-primary); }
+.ai-provider-meta { font-size: 12px; color: var(--text-muted); }
+.ai-stat { text-align: center; }
+.ai-stat-val { font-size: 20px; font-weight: 800; font-family: 'JetBrains Mono', monospace; }
+.ai-stat-label { font-size: 10px; color: var(--text-muted); text-transform: uppercase; }
+
+/* ── CHART WRAPPER ──────────────────────────────────────── */
+.chart-wrap { position: relative; height: 200px; }
+.chart-wrap canvas { border-radius: var(--radius-sm); }
+
+/* ── EMPTY STATE ────────────────────────────────────────── */
+.empty-state {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  padding: 48px 24px; gap: 10px; color: var(--text-disabled);
+}
+.empty-icon { font-size: 36px; opacity: .4; }
+.empty-text { font-size: 13px; }
+
+/* ── RESPONSIVE ─────────────────────────────────────────── */
+@media (max-width: 900px) {
+  .sidebar { transform: translateX(-100%); }
+  .sidebar.open { transform: translateX(0); box-shadow: var(--shadow-modal); }
+  .main { margin-left: 0; }
+  .grid-2, .grid-3, .grid-sidebar { grid-template-columns: 1fr; }
+  .conv-layout { grid-template-columns: 1fr; }
+  .conv-list { display: none; }
+  .conv-list.show { display: block; height: calc(100vh - 52px); }
+}
+
+/* ── MOBILE HEADER ──────────────────────────────────────── */
+.mobile-menu-btn {
+  display: none;
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 20px;
+  cursor: pointer;
+  padding: 4px;
+}
+@media (max-width: 900px) { .mobile-menu-btn { display: flex; } }
+
+.divider { height: 1px; background: var(--border-subtle); margin: 16px 0; }
+.text-muted { color: var(--text-muted); }
+.font-mono { font-family: 'JetBrains Mono', monospace; }
+.text-right { text-align: right; }
+
+/* Stepper de funil */
+.step-indicator { display: flex; align-items: center; gap: 4px; }
+.step-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--border-strong);
+  transition: background .2s;
+}
+.step-dot.done  { background: var(--mint); }
+.step-dot.active { background: var(--blue); box-shadow: 0 0 0 3px var(--blue-dim); }
+</style>
+</head>
+<body>
+
+<!-- ────────── LOGIN ────────── -->
+<div class="login-screen" id="loginScreen">
+  <div class="login-box">
+    <div class="login-logo">
+      <div class="login-logo-icon">🤖</div>
+      <div>
+        <div class="login-title">Jarvis CRM</div>
+        <div class="login-sub">Painel de Controle</div>
+      </div>
+    </div>
+    <div class="login-error" id="loginError"></div>
+    <div class="field">
+      <label>SENHA DE ACESSO</label>
+      <input type="password" id="loginPass" placeholder="••••••••" autocomplete="current-password">
+    </div>
+    <button class="login-btn" id="loginBtn">Entrar</button>
+  </div>
+</div>
+
+<!-- ────────── SIDEBAR ────────── -->
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-logo">
+    <div class="logo-icon">🤖</div>
+    <div>
+      <div class="logo-text">Jarvis CRM</div>
+      <div class="logo-version">v2.0 Enterprise</div>
+    </div>
+  </div>
+
+  <div class="wa-status-pill" id="waStatusPill">
+    <div class="wa-dot" id="waDot"></div>
+    <span id="waStatusText">Verificando...</span>
+  </div>
+
+  <div class="nav-section">Principal</div>
+  <div class="nav-item active" data-page="dashboard"><span class="nav-icon">📊</span> Dashboard</div>
+  <div class="nav-item" data-page="conversas"><span class="nav-icon">💬</span> Conversas <span class="nav-badge blue" id="badgeConv">0</span></div>
+  <div class="nav-item" data-page="crm"><span class="nav-icon">👥</span> CRM / Leads</div>
+  <div class="nav-item" data-page="pipeline"><span class="nav-icon">🎯</span> Pipeline</div>
+
+  <div class="nav-section">Operações</div>
+  <div class="nav-item" data-page="whatsapp"><span class="nav-icon">📱</span> WhatsApp</div>
+  <div class="nav-item" data-page="ia"><span class="nav-icon">🧠</span> AI Center</div>
+
+  <div class="nav-section">Sistema</div>
+  <div class="nav-item" data-page="logs"><span class="nav-icon">🗂</span> Logs</div>
+  <div class="nav-item" data-page="blacklist"><span class="nav-icon">🚫</span> Blacklist</div>
+
+  <div class="sidebar-footer">
+    <div class="nav-item" id="logoutBtn" style="color:var(--text-muted);">
+      <span class="nav-icon">🚪</span> Sair
+    </div>
+  </div>
+</aside>
+
+<!-- ────────── MAIN ────────── -->
+<div class="main" id="mainContent">
+  <!-- TOPBAR -->
+  <header class="topbar">
+    <button class="mobile-menu-btn" id="mobileMenuBtn">☰</button>
+    <div class="topbar-title" id="topbarTitle">Dashboard</div>
+    <div class="topbar-search" id="globalSearchWrap">
+      <span style="color:var(--text-muted);font-size:13px;">🔍</span>
+      <input type="text" id="globalSearch" placeholder="Buscar lead, número...">
+    </div>
+    <button class="btn btn-ghost btn-icon" onclick="refreshCurrentPage()" title="Atualizar">↻</button>
+  </header>
+
+  <!-- ── DASHBOARD ──────────────────────────────────── -->
+  <div class="page active" id="dashboardPage">
+    <div class="kpi-grid" id="kpiGrid"></div>
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Funil de Conversão</span>
+          <span class="badge badge-blue" id="funnelUpdateBadge">ao vivo</span>
+        </div>
+        <div class="chart-wrap"><canvas id="funnelChart"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Score dos Leads</span>
+        </div>
+        <div class="chart-wrap"><canvas id="scoreChart"></canvas></div>
+      </div>
+    </div>
+    <div class="grid-sidebar">
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Leads Recentes</span>
+          <button class="btn btn-ghost btn-sm" onclick="navigate('crm')">Ver todos</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Nome</th><th>Etapa</th><th>Score</th><th>Atualizado</th></tr></thead>
+            <tbody id="recentLeadsBody"></tbody>
+          </table>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:14px;">
+        <div class="card">
+          <div class="card-title" style="margin-bottom:12px;">Status do Sistema</div>
+          <div id="sysStatus" style="display:flex;flex-direction:column;gap:8px;"></div>
+        </div>
+        <div class="card">
+          <div class="card-title" style="margin-bottom:12px;">Distribuição de Etapas</div>
+          <div class="chart-wrap" style="height:150px;"><canvas id="stageDistChart"></canvas></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── CONVERSAS ──────────────────────────────────── -->
+  <div class="page" id="conversasPage" style="padding:0;">
+    <div class="conv-layout">
+      <div class="conv-list" id="convList">
+        <div class="conv-list-header">
+          <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;">
+            <div style="font-size:14px;font-weight:700;">Conversas</div>
+            <span class="badge badge-blue" id="convCount">0</span>
+          </div>
+          <div class="topbar-search" style="width:100%;">
+            <span style="color:var(--text-muted);font-size:12px;">🔍</span>
+            <input type="text" id="convSearch" placeholder="Buscar...">
+          </div>
+          <div style="display:flex;gap:6px;margin-top:8px;">
+            <button class="btn btn-ghost btn-sm conv-filter active" data-filter="all">Todas</button>
+            <button class="btn btn-ghost btn-sm conv-filter" data-filter="ativo">Ativas</button>
+            <button class="btn btn-ghost btn-sm conv-filter" data-filter="finalizado">Finalizadas</button>
+          </div>
+        </div>
+        <div id="convListBody"></div>
+      </div>
+      <div class="conv-main" id="convMain">
+        <div class="conv-empty" id="convEmpty">
+          <div class="conv-empty-icon">💬</div>
+          <div>Selecione uma conversa</div>
+        </div>
+        <div id="convViewer" style="display:none;flex-direction:column;height:100%;">
+          <div class="conv-header" id="convHeader"></div>
+          <div class="conv-messages" id="convMessages"></div>
+          <div class="conv-input-bar">
+            <input class="conv-input" id="convReplyInput" placeholder="Responder como Rodrigo...">
+            <button class="btn btn-primary" id="convSendBtn">Enviar</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── CRM ────────────────────────────────────────── -->
+  <div class="page" id="crmPage">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;gap:12px;flex-wrap:wrap;">
+      <div>
+        <div style="font-size:18px;font-weight:800;letter-spacing:-.3px;">CRM / Leads</div>
+        <div style="font-size:12px;color:var(--text-muted);margin-top:2px;" id="crmSubtitle">Carregando...</div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <select id="crmStepFilter" class="field" style="margin:0;width:auto;">
+          <option value="">Todas as etapas</option>
+          <option value="1">Etapa 1 — Saudação</option>
+          <option value="2">Etapa 2 — Descoberta</option>
+          <option value="3">Etapa 3 — Qualificação</option>
+          <option value="4">Etapa 4 — Apresentação</option>
+          <option value="5">Etapa 5 — Como Usar</option>
+          <option value="6">Etapa 6 — Segurança</option>
+          <option value="7">Etapa 7 — Oferta</option>
+          <option value="8">Etapa 8 — Checkout</option>
+          <option value="10">Etapa 10 — Finalizado</option>
+        </select>
+        <button class="btn btn-ghost btn-sm" onclick="exportLeadsCSV()">⬇ Exportar CSV</button>
+      </div>
+    </div>
+    <div class="card">
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Lead</th>
+              <th>Telefone</th>
+              <th>Score</th>
+              <th>Etapa</th>
+              <th>Produto</th>
+              <th>Valor</th>
+              <th>Último contato</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="crmTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── PIPELINE ───────────────────────────────────── -->
+  <div class="page" id="pipelinePage">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+      <div style="font-size:18px;font-weight:800;letter-spacing:-.3px;">Pipeline de Vendas</div>
+      <div style="font-size:13px;color:var(--text-muted);" id="pipelineTotal"></div>
+    </div>
+    <div class="kanban" id="kanbanBoard"></div>
+    <div class="grid-2" style="margin-top:16px;">
+      <div class="card">
+        <div class="card-header"><span class="card-title">Volume por Etapa</span></div>
+        <div class="chart-wrap"><canvas id="pipelineChart"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-header"><span class="card-title">Taxa de Conversão por Etapa</span></div>
+        <div id="conversionRates" style="display:flex;flex-direction:column;gap:10px;margin-top:4px;"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── WHATSAPP ────────────────────────────────────── -->
+  <div class="page" id="whatsappPage">
+    <div style="font-size:18px;font-weight:800;letter-spacing:-.3px;margin-bottom:20px;">WhatsApp Center</div>
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Status da Conexão</span>
+          <span class="badge badge-mint" id="waStatusBadge">Online</span>
+        </div>
+        <div id="waInfo" style="display:flex;flex-direction:column;gap:10px;"></div>
+        <div class="divider"></div>
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-ghost" onclick="reconnectWA()">🔄 Reconectar</button>
+          <button class="btn btn-ghost" onclick="window.open('/qr','_blank')">📱 QR Code</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header"><span class="card-title">Enviar Mensagem Manual</span></div>
+        <div class="field"><label>NÚMERO (com DDI)</label><input type="text" id="sendPhone" placeholder="5511999999999"></div>
+        <div class="field"><label>MENSAGEM</label><textarea id="sendMsg" placeholder="Digite a mensagem..."></textarea></div>
+        <button class="btn btn-primary" onclick="sendManual()">✉ Enviar via Rodrigo</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── AI CENTER ──────────────────────────────────── -->
+  <div class="page" id="iaPage">
+    <div style="font-size:18px;font-weight:800;letter-spacing:-.3px;margin-bottom:20px;">AI Center</div>
+    <div class="grid-2" style="margin-bottom:16px;">
+      <div class="card ai-provider-card" id="groqCard">
+        <div class="ai-provider-icon">⚡</div>
+        <div style="flex:1;">
+          <div class="ai-provider-name">Groq — LLaMA 3.3 70B</div>
+          <div class="ai-provider-meta">Provedor principal · baixa latência</div>
+        </div>
+        <div style="display:flex;gap:20px;">
+          <div class="ai-stat"><div class="ai-stat-val blue-bright" id="groqLatency">—</div><div class="ai-stat-label">ms médio</div></div>
+          <div class="ai-stat"><div class="ai-stat-val" id="groqCalls">—</div><div class="ai-stat-label">calls</div></div>
+        </div>
+      </div>
+      <div class="card ai-provider-card" id="geminiCard">
+        <div class="ai-provider-icon">🔷</div>
+        <div style="flex:1;">
+          <div class="ai-provider-name">Google Gemini 2.0 Flash</div>
+          <div class="ai-provider-meta">Fallback automático</div>
+        </div>
+        <div style="display:flex;gap:20px;">
+          <div class="ai-stat"><div class="ai-stat-val" id="geminiLatency">—</div><div class="ai-stat-label">ms médio</div></div>
+          <div class="ai-stat"><div class="ai-stat-val" id="geminiCalls">—</div><div class="ai-stat-label">calls</div></div>
+        </div>
+      </div>
+    </div>
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-header"><span class="card-title">Latência por Provedor (ms)</span></div>
+        <div class="chart-wrap"><canvas id="iaLatencyChart"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-header"><span class="card-title">Volume de Calls</span></div>
+        <div class="chart-wrap"><canvas id="iaCallsChart"></canvas></div>
+      </div>
+    </div>
+    <div class="card" style="margin-top:16px;">
+      <div class="card-header">
+        <span class="card-title">Taxa de Fallback</span>
+        <span class="badge badge-amber" id="fallbackBadge">—%</span>
+      </div>
+      <div style="font-size:12px;color:var(--text-muted);">Porcentagem de mensagens que precisaram do Gemini porque a Groq falhou. Meta: abaixo de 5%.</div>
+    </div>
+  </div>
+
+  <!-- ── LOGS ───────────────────────────────────────── -->
+  <div class="page" id="logsPage">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+      <div style="font-size:18px;font-weight:800;letter-spacing:-.3px;">Logs do Sistema</div>
+      <div style="display:flex;gap:8px;">
+        <button class="btn btn-ghost btn-sm" onclick="clearLogsDisplay()">Limpar</button>
+        <button class="btn btn-ghost btn-sm" id="logAutoRefresh">⏸ Pausar</button>
+      </div>
+    </div>
+    <div class="card">
+      <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
+        <button class="btn btn-ghost btn-sm log-filter active" data-level="all">Todos</button>
+        <button class="btn btn-ghost btn-sm log-filter" data-level="error">Erros</button>
+        <button class="btn btn-ghost btn-sm log-filter" data-level="warn">Warnings</button>
+        <button class="btn btn-ghost btn-sm log-filter" data-level="info">Info</button>
+      </div>
+      <div class="log-container" id="logContainer"></div>
+    </div>
+  </div>
+
+  <!-- ── BLACKLIST ──────────────────────────────────── -->
+  <div class="page" id="blacklistPage">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+      <div style="font-size:18px;font-weight:800;letter-spacing:-.3px;">Blacklist</div>
+      <button class="btn btn-primary" onclick="openAddBlacklist()">+ Adicionar número</button>
+    </div>
+    <div class="card">
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Número</th><th>Adicionado em</th><th></th></tr></thead>
+          <tbody id="blacklistBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── MODALS ────────────────────────────────────────────── -->
+<div class="modal-overlay" id="addBlacklistModal">
+  <div class="modal">
+    <div class="modal-title">Adicionar à Blacklist</div>
+    <div class="modal-sub">O número não receberá mais respostas do bot.</div>
+    <div class="field"><label>NÚMERO (com DDI)</label><input type="text" id="blPhone" placeholder="5511999999999"></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('addBlacklistModal')">Cancelar</button>
+      <button class="btn btn-danger" onclick="confirmAddBlacklist()">Bloquear</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast-container" id="toastContainer"></div>
+
+<!-- ── SCRIPTS ───────────────────────────────────────────── -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+'use strict';
+// ============================================================
+//  JARVIS CRM — Frontend v2
+//  Consome os mesmos endpoints do backend original
+//  Autenticação via cookie jarvis_token (setado pelo /api/auth/login)
+// ============================================================
+
+// ── STATE ────────────────────────────────────────────────────
+const state = {
+  page: 'dashboard',
+  token: localStorage.getItem('jarvis_token') || '',
+  charts: {},
+  convFilter: 'all',
+  convSearch: '',
+  convActive: null,
+  logLevel: 'all',
+  logPaused: false,
+  logInterval: null,
+  refreshInterval: null,
+};
+
+// ── AUTH ─────────────────────────────────────────────────────
+function authHeader() {
+  return state.token ? { 'Authorization': `Bearer ${state.token}` } : {};
+}
+
+async function api(endpoint, opts = {}) {
+  const res = await fetch(endpoint, {
+    ...opts,
+    headers: { 'Content-Type': 'application/json', ...authHeader(), ...(opts.headers || {}) },
+  });
+  if (res.status === 401) { showLogin(); throw new Error('Não autorizado'); }
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
+}
+
+function showLogin() {
+  document.getElementById('loginScreen').classList.add('show');
+}
+function hideLogin() {
+  document.getElementById('loginScreen').classList.remove('show');
+}
+
+async function doLogin() {
+  const pass = document.getElementById('loginPass').value;
+  const errEl = document.getElementById('loginError');
+  errEl.style.display = 'none';
+  try {
+    const data = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password: pass }),
+    }).then(r => r.json());
+    if (data.error) { errEl.textContent = data.error; errEl.style.display = 'block'; return; }
+    state.token = data.token;
+    localStorage.setItem('jarvis_token', data.token);
+    hideLogin();
+    initApp();
+  } catch(e) {
+    errEl.textContent = 'Erro de conexão.';
+    errEl.style.display = 'block';
+  }
+}
+
+async function logout() {
+  try { await api('/api/auth/logout', { method: 'POST' }); } catch {}
+  localStorage.removeItem('jarvis_token');
+  state.token = '';
+  showLogin();
+}
+
+// Login events
+document.getElementById('loginBtn').addEventListener('click', doLogin);
+document.getElementById('loginPass').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+document.getElementById('logoutBtn').addEventListener('click', logout);
+
+// ── NAVIGATION ───────────────────────────────────────────────
+const PAGE_TITLES = {
+  dashboard: 'Dashboard', conversas: 'Conversas', crm: 'CRM / Leads',
+  pipeline: 'Pipeline', whatsapp: 'WhatsApp Center', ia: 'AI Center',
+  logs: 'Logs do Sistema', blacklist: 'Blacklist',
+};
+
+function navigate(page) {
+  // Hide all pages
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById(`${page}Page`).classList.add('active');
+  // Update nav
+  document.querySelectorAll('.nav-item[data-page]').forEach(n => {
+    n.classList.toggle('active', n.dataset.page === page);
+  });
+  document.getElementById('topbarTitle').textContent = PAGE_TITLES[page] || page;
+  state.page = page;
+  // Cleanup
+  if (state.logInterval) { clearInterval(state.logInterval); state.logInterval = null; }
+  // Load
+  const loaders = {
+    dashboard: loadDashboard,
+    conversas: loadConversas,
+    crm: loadCRM,
+    pipeline: loadPipeline,
+    whatsapp: loadWhatsApp,
+    ia: loadIA,
+    logs: () => { loadLogs(); if (!state.logPaused) state.logInterval = setInterval(loadLogs, 3000); },
+    blacklist: loadBlacklist,
+  };
+  if (loaders[page]) loaders[page]();
+}
+
+function refreshCurrentPage() { navigate(state.page); }
+
+document.querySelectorAll('.nav-item[data-page]').forEach(item => {
+  item.addEventListener('click', () => navigate(item.dataset.page));
+});
+
+// Mobile menu
+document.getElementById('mobileMenuBtn').addEventListener('click', () => {
+  document.getElementById('sidebar').classList.toggle('open');
+});
+
+// ── TOAST ────────────────────────────────────────────────────
+function toast(msg, type = 'success') {
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  el.innerHTML = `<span>${type === 'success' ? '✅' : '❌'}</span> ${msg}`;
+  document.getElementById('toastContainer').appendChild(el);
+  setTimeout(() => el.remove(), 3500);
+}
+
+// ── MODAL ────────────────────────────────────────────────────
+function openModal(id) { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+// ── HELPERS ──────────────────────────────────────────────────
+function scoreColor(s) {
+  if (s >= 80) return '#10B981';
+  if (s >= 50) return '#F59E0B';
+  if (s >= 20) return '#3B82F6';
+  return '#475569';
+}
+
+function stepBadge(step) {
+  const map = {
+    1: ['Novo', 'badge-gray'],
+    2: ['Descoberta', 'badge-blue'],
+    3: ['Qualif.', 'badge-blue'],
+    4: ['Apresent.', 'badge-blue'],
+    5: ['Uso', 'badge-blue'],
+    6: ['Segurança', 'badge-blue'],
+    7: ['Oferta', 'badge-amber'],
+    8: ['Checkout', 'badge-amber'],
+    10: ['Finalizado', 'badge-mint'],
+  };
+  const [label, cls] = map[step] || ['Step ' + step, 'badge-gray'];
+  return `<span class="badge ${cls}">${label}</span>`;
+}
+
+function timeAgo(iso) {
+  if (!iso) return '—';
+  const diff = (Date.now() - new Date(iso)) / 1000;
+  if (diff < 60) return 'agora';
+  if (diff < 3600) return `${Math.floor(diff/60)}min`;
+  if (diff < 86400) return `${Math.floor(diff/3600)}h`;
+  return `${Math.floor(diff/86400)}d`;
+}
+
+function formatPhone(p) {
+  if (!p) return '—';
+  const n = p.replace(/\D/g,'');
+  if (n.length === 13) return `+${n.slice(0,2)} (${n.slice(2,4)}) ${n.slice(4,9)}-${n.slice(9)}`;
+  return p;
+}
+
+// ── WA STATUS ────────────────────────────────────────────────
+async function refreshWAStatus() {
+  try {
+    const h = await fetch('/health').then(r => r.json());
+    const online = h.whatsappOnline;
+    const dot = document.getElementById('waDot');
+    const txt = document.getElementById('waStatusText');
+    dot.className = 'wa-dot' + (online ? '' : ' offline');
+    txt.textContent = online ? 'WhatsApp Online' : 'WhatsApp Offline';
+  } catch {}
+}
+
+// ── DASHBOARD ────────────────────────────────────────────────
+async function loadDashboard() {
+  try {
+    const [stats, pipeline, leads] = await Promise.all([
+      api('/api/stats'),
+      api('/api/pipeline'),
+      api('/api/leads'),
+    ]);
+    renderKPIs(stats);
+    renderFunnelChart(pipeline);
+    renderScoreChart(leads);
+    renderRecentLeads(leads.slice(0, 6));
+    renderSysStatus(stats);
+    renderStageDistChart(pipeline);
+    // Badge sidebar
+    document.getElementById('badgeConv').textContent = stats.conversasAtivas || 0;
+  } catch(e) { console.error(e); }
+}
+
+function renderKPIs(stats) {
+  const kpis = [
+    { label: 'Conversas Ativas', value: stats.conversasAtivas || 0, icon: '💬', color: 'blue', sub: `${stats.totalConversas} total`, trend: null },
+    { label: 'Pedidos Finalizados', value: stats.pedidosFinalizados || 0, icon: '✅', color: 'mint', sub: `${stats.taxaConversao}% conversão`, trend: 'up' },
+    { label: 'Receita Gerada', value: `R$${parseFloat(stats.receita||0).toLocaleString('pt-BR',{minimumFractionDigits:2})}`, icon: '💰', color: 'amber', sub: `ROAS ${stats.roas}x`, trend: 'up' },
+    { label: 'Leads Hoje', value: stats.mensagensHoje || 0, icon: '📥', color: 'purple', sub: 'novos contatos', trend: null },
+  ];
+  document.getElementById('kpiGrid').innerHTML = kpis.map(k => `
+    <div class="kpi-card ${k.color}">
+      <div class="kpi-icon ${k.color}">${k.icon}</div>
+      <div class="kpi-label">${k.label}</div>
+      <div class="kpi-value">${k.value}</div>
+      <div class="kpi-sub">${k.sub}</div>
+      ${k.trend ? `<div class="kpi-trend ${k.trend}">${k.trend==='up'?'↑':'↓'} em alta</div>` : ''}
+    </div>
+  `).join('');
+}
+
+function renderFunnelChart(pipeline) {
+  const ctx = document.getElementById('funnelChart');
+  if (state.charts.funnel) state.charts.funnel.destroy();
+  state.charts.funnel = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: pipeline.stages,
+      datasets: [{
+        data: pipeline.counts,
+        backgroundColor: [
+          'rgba(59,130,246,.8)', 'rgba(59,130,246,.7)', 'rgba(59,130,246,.65)',
+          'rgba(59,130,246,.6)', 'rgba(245,158,11,.8)', 'rgba(245,158,11,.9)',
+          'rgba(16,185,129,.9)',
+        ],
+        borderRadius: 6,
+        borderSkipped: false,
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { color: '#94A3B8', font: { size: 10 } }, grid: { color: 'rgba(255,255,255,.03)' } },
+        y: { ticks: { color: '#94A3B8', font: { size: 10 } }, grid: { color: 'rgba(255,255,255,.05)' }, beginAtZero: true },
+      }
+    }
+  });
+}
+
+function renderScoreChart(leads) {
+  const ctx = document.getElementById('scoreChart');
+  if (state.charts.score) state.charts.score.destroy();
+  const buckets = { '0-20': 0, '21-50': 0, '51-80': 0, '81-100': 0, '100+': 0 };
+  leads.forEach(l => {
+    const s = l.score || 0;
+    if (s <= 20) buckets['0-20']++;
+    else if (s <= 50) buckets['21-50']++;
+    else if (s <= 80) buckets['51-80']++;
+    else if (s <= 100) buckets['81-100']++;
+    else buckets['100+']++;
+  });
+  state.charts.score = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels: Object.keys(buckets),
+      datasets: [{ data: Object.values(buckets), backgroundColor: ['#334155','#3B82F6','#F59E0B','#10B981','#8B5CF6'], borderWidth: 0 }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false, cutout: '65%',
+      plugins: { legend: { position: 'right', labels: { color: '#94A3B8', font: { size: 11 }, padding: 12 } } }
+    }
+  });
+}
+
+function renderRecentLeads(leads) {
+  document.getElementById('recentLeadsBody').innerHTML = leads.map(l => `
+    <tr onclick="navigate('crm')" style="cursor:pointer;">
+      <td><strong style="color:var(--text-primary);">${l.nome}</strong></td>
+      <td>${stepBadge(l.etapa)}</td>
+      <td>
+        <div class="score-ring">
+          <div class="score-bar"><div class="score-fill" style="width:${Math.min(l.score,100)}%;background:${scoreColor(l.score)};"></div></div>
+          <span style="color:${scoreColor(l.score)}">${l.score}</span>
+        </div>
+      </td>
+      <td class="text-muted">${timeAgo(l.ultimo_contato)}</td>
+    </tr>
+  `).join('') || '<tr><td colspan="4" class="text-muted" style="text-align:center;">Sem leads</td></tr>';
+}
+
+function renderSysStatus(stats) {
+  const items = [
+    { label: 'WhatsApp', check: async () => { const h = await fetch('/health').then(r=>r.json()); return h.whatsappOnline; } },
+    { label: 'Banco de Dados', check: async () => { try { const d = await api('/api/db/health'); return d.status === 'connected'; } catch { return false; } } },
+    { label: 'IA (Groq/Gemini)', check: async () => { const h = await fetch('/health').then(r=>r.json()); return h.iaOk; } },
+  ];
+  const container = document.getElementById('sysStatus');
+  items.forEach(async item => {
+    const ok = await item.check().catch(() => false);
+    const div = document.createElement('div');
+    div.style.cssText = 'display:flex;align-items:center;justify-content:space-between;font-size:12px;';
+    div.innerHTML = `<span style="color:var(--text-secondary);">${item.label}</span><span class="badge ${ok ? 'badge-mint' : 'badge-red'}">${ok ? '● Online' : '● Offline'}</span>`;
+    container.appendChild(div);
+  });
+}
+
+function renderStageDistChart(pipeline) {
+  const ctx = document.getElementById('stageDistChart');
+  if (state.charts.stageDist) state.charts.stageDist.destroy();
+  state.charts.stageDist = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: pipeline.stages.map(s => s.split(' ').slice(-1)[0]),
+      datasets: [{ data: pipeline.counts, backgroundColor: 'rgba(59,130,246,.6)', borderRadius: 4, borderSkipped: false }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false, indexAxis: 'y',
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { color: '#475569', font: { size: 9 } }, grid: { display: false }, beginAtZero: true },
+        y: { ticks: { color: '#94A3B8', font: { size: 9 } }, grid: { display: false } },
+      }
+    }
+  });
+}
+
+// ── CONVERSAS ────────────────────────────────────────────────
+let allConvs = [];
+async function loadConversas() {
+  try {
+    const data = await api('/api/conversations?limit=100');
+    allConvs = data.data || data; // compatibilidade com formato legado
+    renderConvList();
+  } catch(e) { console.error(e); }
+}
+
+function renderConvList() {
+  let list = [...allConvs];
+  if (state.convFilter !== 'all') list = list.filter(c => c.status === state.convFilter);
+  if (state.convSearch) {
+    const q = state.convSearch.toLowerCase();
+    list = list.filter(c => c.nome.toLowerCase().includes(q) || c.phone.includes(q));
+  }
+  document.getElementById('convCount').textContent = list.length;
+  document.getElementById('convListBody').innerHTML = list.map(c => `
+    <div class="conv-item ${state.convActive === c.phone ? 'active' : ''}" onclick="openConv('${c.phone}')">
+      <div class="conv-item-top">
+        <div class="conv-item-name">${c.nome}</div>
+        <div class="conv-item-time">${timeAgo(c.updatedAt)}</div>
+      </div>
+      <div class="conv-item-preview">${c.ultima_msg}</div>
+      <div class="conv-item-foot">
+        ${stepBadge(c.step || 1)}
+        <div class="score-ring">
+          <div class="score-bar"><div class="score-fill" style="width:${Math.min(c.lead_score,100)}%;background:${scoreColor(c.lead_score)};"></div></div>
+          <span style="font-size:10px;color:${scoreColor(c.lead_score)}">${c.lead_score}</span>
+        </div>
+      </div>
+    </div>
+  `).join('') || '<div class="empty-state"><div class="empty-icon">💬</div><div class="empty-text">Nenhuma conversa</div></div>';
+}
+
+async function openConv(phone) {
+  state.convActive = phone;
+  renderConvList();
+  document.getElementById('convEmpty').style.display = 'none';
+  const viewer = document.getElementById('convViewer');
+  viewer.style.display = 'flex';
+
+  const conv = allConvs.find(c => c.phone === phone);
+  document.getElementById('convHeader').innerHTML = `
+    <div style="display:flex;align-items:center;gap:10px;flex:1;">
+      <div style="width:36px;height:36px;background:var(--blue-dim);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:15px;">👤</div>
+      <div>
+        <div style="font-weight:700;font-size:14px;">${conv?.nome || phone}</div>
+        <div class="phone-chip">${formatPhone(phone)}</div>
+      </div>
+    </div>
+    ${conv ? stepBadge(conv.step) : ''}
+    ${conv ? `<div class="score-ring"><div class="score-bar"><div class="score-fill" style="width:${Math.min(conv.lead_score,100)}%;background:${scoreColor(conv.lead_score)};"></div></div><span style="color:${scoreColor(conv.lead_score)};font-size:12px;">${conv.lead_score} pts</span></div>` : ''}
+  `;
+
+  try {
+    const msgs = await api(`/api/messages/${phone}`);
+    const container = document.getElementById('convMessages');
+    container.innerHTML = msgs.length ? msgs.map(m => `
+      <div class="msg ${m.role}">
+        <div class="msg-bubble">${m.content}</div>
+        <div class="msg-time">${m.role === 'user' ? 'Cliente' : '🤖 Rodrigo'}</div>
+      </div>
+    `).join('') : '<div class="conv-empty" style="flex:1"><div class="conv-empty-icon">💬</div><div>Sem mensagens salvas</div></div>';
+    container.scrollTop = container.scrollHeight;
+  } catch {}
+
+  // Reply
+  document.getElementById('convSendBtn').onclick = async () => {
+    const msg = document.getElementById('convReplyInput').value.trim();
+    if (!msg) return;
+    try {
+      await api('/api/send', { method: 'POST', body: JSON.stringify({ phone, message: msg }) });
+      document.getElementById('convReplyInput').value = '';
+      toast('Mensagem enviada');
+      setTimeout(() => openConv(phone), 800);
+    } catch(e) { toast('Erro ao enviar', 'error'); }
+  };
+}
+
+// Conv filters
+document.querySelectorAll('.conv-filter').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.conv-filter').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    state.convFilter = btn.dataset.filter;
+    renderConvList();
+  });
+});
+document.getElementById('convSearch').addEventListener('input', e => {
+  state.convSearch = e.target.value;
+  renderConvList();
+});
+
+// ── CRM ──────────────────────────────────────────────────────
+async function loadCRM() {
+  try {
+    const step = document.getElementById('crmStepFilter').value;
+    const url = step ? `/api/leads?step=${step}` : '/api/leads';
+    const leads = await api(url);
+    document.getElementById('crmSubtitle').textContent = `${leads.length} lead${leads.length!==1?'s':''} encontrado${leads.length!==1?'s':''}`;
+    document.getElementById('crmTableBody').innerHTML = leads.map(l => `
+      <tr>
+        <td><strong style="color:var(--text-primary);">${l.nome}</strong></td>
+        <td><span class="phone-chip">${formatPhone(l.telefone)}</span></td>
+        <td>
+          <div class="score-ring">
+            <div class="score-bar"><div class="score-fill" style="width:${Math.min(l.score,100)}%;background:${scoreColor(l.score)};"></div></div>
+            <span style="color:${scoreColor(l.score)};font-weight:700;">${l.score}</span>
+          </div>
+        </td>
+        <td>${stepBadge(l.etapa)}</td>
+        <td>${l.produto ? `<span class="badge badge-amber">${l.produto} un.</span>` : '<span class="text-muted">—</span>'}</td>
+        <td>${l.valor ? `<span style="color:var(--mint-bright);font-weight:600;">R$${l.valor}</span>` : '<span class="text-muted">—</span>'}</td>
+        <td class="text-muted">${timeAgo(l.ultimo_contato)}</td>
+        <td><button class="btn btn-ghost btn-sm" onclick="navigate('conversas');setTimeout(()=>openConv('${l.telefone}'),400)">💬</button></td>
+      </tr>
+    `).join('') || '<tr><td colspan="8"><div class="empty-state"><div class="empty-icon">👥</div><div class="empty-text">Sem leads</div></div></td></tr>';
+  } catch(e) { console.error(e); }
+}
+document.getElementById('crmStepFilter').addEventListener('change', loadCRM);
+
+function exportLeadsCSV() {
+  api('/api/leads').then(leads => {
+    const cols = ['nome','telefone','score','etapa','produto','valor','ultimo_contato','dor','endereco'];
+    const csv = [cols.join(','), ...leads.map(l => cols.map(c => JSON.stringify(l[c]||'')).join(','))].join('\n');
+    const a = document.createElement('a');
+    a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
+    a.download = `leads_jarvis_${new Date().toISOString().slice(0,10)}.csv`;
+    a.click();
+    toast('CSV exportado');
+  });
+}
+
+// ── PIPELINE ─────────────────────────────────────────────────
+async function loadPipeline() {
+  try {
+    const [pipeline, leads] = await Promise.all([api('/api/pipeline'), api('/api/leads')]);
+    const cols = pipeline.detailed || pipeline.stages.map((s,i) => ({ id: s, label: s, count: pipeline.counts[i] }));
+    const total = cols.reduce((a,c) => a + c.count, 0);
+    document.getElementById('pipelineTotal').textContent = `${total} leads no funil`;
+
+    // Kanban com leads reais
+    document.getElementById('kanbanBoard').innerHTML = cols.map(col => {
+      const colLeads = leads.filter(l => {
+        const stepMap = { 'Novo Lead':1,'Contato':2,'Qualificado':[3,4],'Interesse':[5,6],'Oferta':7,'Checkout':8,'Finalizado':10 };
+        const s = stepMap[col.label];
+        return Array.isArray(s) ? s.includes(l.etapa) : l.etapa === s;
+      }).slice(0,4);
+      return `
+        <div class="kanban-col">
+          <div class="kanban-header">
+            <span class="kanban-title">${col.label}</span>
+            <span class="kanban-count">${col.count}</span>
+          </div>
+          <div class="kanban-body">
+            ${colLeads.map(l => `
+              <div class="kanban-card" onclick="navigate('conversas');setTimeout(()=>openConv('${l.telefone}'),400);">
+                <div class="kanban-name">${l.nome}</div>
+                <div class="kanban-meta">
+                  <span class="text-muted">${timeAgo(l.ultimo_contato)}</span>
+                  <span style="color:${scoreColor(l.score)};font-size:11px;font-weight:700;">${l.score}pts</span>
+                </div>
+              </div>
+            `).join('')}
+            ${colLeads.length === 0 ? '<div class="kanban-empty">Vazio</div>' : ''}
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    // Pipeline bar chart
+    const ctx = document.getElementById('pipelineChart');
+    if (state.charts.pipeline) state.charts.pipeline.destroy();
+    state.charts.pipeline = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: pipeline.stages,
+        datasets: [{ data: pipeline.counts, backgroundColor: 'rgba(59,130,246,.7)', borderRadius: 6, borderSkipped: false }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { ticks: { color: '#94A3B8', font: { size: 10 } }, grid: { color: 'rgba(255,255,255,.03)' } },
+          y: { ticks: { color: '#94A3B8' }, grid: { color: 'rgba(255,255,255,.05)' }, beginAtZero: true },
+        }
+      }
+    });
+
+    // Conversion rates
+    const rates = document.getElementById('conversionRates');
+    rates.innerHTML = cols.map((col, i) => {
+      const rate = i > 0 && cols[i-1].count > 0 ? ((col.count / cols[i-1].count)*100).toFixed(0) : 100;
+      return `
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div style="width:90px;font-size:11px;color:var(--text-muted);white-space:nowrap;">${col.label}</div>
+          <div style="flex:1;height:6px;background:var(--bg-elevated);border-radius:99px;overflow:hidden;">
+            <div style="height:100%;width:${rate}%;background:${rate>60?'var(--mint)':rate>30?'var(--amber)':'var(--red)'};border-radius:99px;transition:width .4s;"></div>
+          </div>
+          <div style="width:36px;text-align:right;font-size:11px;font-weight:700;">${rate}%</div>
+        </div>
+      `;
+    }).join('');
+  } catch(e) { console.error(e); }
+}
+
+// ── WHATSAPP ─────────────────────────────────────────────────
+async function loadWhatsApp() {
+  try {
+    const h = await fetch('/health').then(r => r.json());
+    document.getElementById('waStatusBadge').textContent = h.whatsappOnline ? 'Online' : 'Offline';
+    document.getElementById('waStatusBadge').className = `badge ${h.whatsappOnline ? 'badge-mint' : 'badge-red'}`;
+    document.getElementById('waInfo').innerHTML = `
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        <div style="display:flex;justify-content:space-between;font-size:13px;">
+          <span class="text-muted">Status</span>
+          <span style="color:${h.whatsappOnline?'var(--mint)':'var(--red)'};">${h.whatsappOnline?'✅ Conectado':'❌ Desconectado'}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:13px;">
+          <span class="text-muted">IA Ativa</span>
+          <span>${h.iaOk ? '✅ Sim' : '❌ Não'}</span>
+        </div>
+      </div>
+    `;
+  } catch {}
+}
+
+async function reconnectWA() {
+  try {
+    await api('/api/whatsapp/reconnect', { method: 'POST' });
+    toast('Reconectando WhatsApp...');
+    setTimeout(loadWhatsApp, 4000);
+  } catch(e) { toast('Erro ao reconectar', 'error'); }
+}
+
+async function sendManual() {
+  const phone = document.getElementById('sendPhone').value.trim();
+  const message = document.getElementById('sendMsg').value.trim();
+  if (!phone || !message) { toast('Preencha número e mensagem', 'error'); return; }
+  try {
+    await api('/api/send', { method: 'POST', body: JSON.stringify({ phone, message }) });
+    document.getElementById('sendMsg').value = '';
+    toast(`Mensagem enviada para ${formatPhone(phone)}`);
+  } catch(e) { toast('Erro ao enviar', 'error'); }
+}
+
+// ── AI CENTER ────────────────────────────────────────────────
+async function loadIA() {
+  try {
+    const m = await api('/api/ia/metrics');
+    document.getElementById('groqLatency').textContent = m.latency.groq || '—';
+    document.getElementById('groqCalls').textContent = m.calls?.groq || m.calls || 0;
+    document.getElementById('geminiLatency').textContent = m.latency.gemini || '—';
+    document.getElementById('geminiCalls').textContent = m.calls?.gemini || 0;
+    document.getElementById('fallbackBadge').textContent = `${m.fallbackRate}% fallback`;
+
+    const lCtx = document.getElementById('iaLatencyChart');
+    const cCtx = document.getElementById('iaCallsChart');
+    if (state.charts.iaLatency) state.charts.iaLatency.destroy();
+    if (state.charts.iaCalls) state.charts.iaCalls.destroy();
+
+    state.charts.iaLatency = new Chart(lCtx, {
+      type: 'bar',
+      data: {
+        labels: ['Groq', 'Gemini'],
+        datasets: [{ data: [m.latency.groq, m.latency.gemini], backgroundColor: ['rgba(59,130,246,.8)','rgba(139,92,246,.8)'], borderRadius: 8, borderSkipped: false }]
+      },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { ticks: { color: '#94A3B8' }, grid: { display: false } }, y: { ticks: { color: '#94A3B8' }, grid: { color: 'rgba(255,255,255,.05)' }, beginAtZero: true } } }
+    });
+
+    const calls = m.calls || {};
+    state.charts.iaCalls = new Chart(cCtx, {
+      type: 'doughnut',
+      data: {
+        labels: ['Groq', 'Gemini (fallback)'],
+        datasets: [{ data: [calls.groq || 0, calls.gemini || 0], backgroundColor: ['rgba(59,130,246,.8)','rgba(139,92,246,.8)'], borderWidth: 0 }]
+      },
+      options: { responsive: true, maintainAspectRatio: false, cutout: '60%', plugins: { legend: { position: 'bottom', labels: { color: '#94A3B8', font: { size: 11 } } } } }
+    });
+  } catch(e) { console.error(e); }
+}
+
+// ── LOGS ─────────────────────────────────────────────────────
+let allLogs = [];
+async function loadLogs() {
+  if (state.logPaused) return;
+  try {
+    const logs = await api('/api/logs');
+    allLogs = logs;
+    renderLogs();
+  } catch {}
+}
+
+function renderLogs() {
+  const filter = state.logLevel;
+  const list = filter === 'all' ? allLogs : allLogs.filter(l => (l.level||'info').toLowerCase() === filter);
+  const container = document.getElementById('logContainer');
+  container.innerHTML = list.slice(-100).reverse().map(l => {
+    const lv = (l.level||'info').toLowerCase();
+    const cls = lv === 'error' ? 'error' : lv === 'warn' ? 'warn' : 'info';
+    return `<div class="log-line ${cls}">[${l.timestamp?.slice(11,19)||'--:--:--'}] <span style="font-weight:600;text-transform:uppercase;">${lv}</span> — ${l.message||JSON.stringify(l)}</div>`;
+  }).join('') || '<div class="log-line text-muted">Sem logs registrados.</div>';
+}
+
+function clearLogsDisplay() { document.getElementById('logContainer').innerHTML = ''; allLogs = []; }
+
+document.querySelectorAll('.log-filter').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.log-filter').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    state.logLevel = btn.dataset.level;
+    renderLogs();
+  });
+});
+
+document.getElementById('logAutoRefresh').addEventListener('click', (e) => {
+  state.logPaused = !state.logPaused;
+  e.target.textContent = state.logPaused ? '▶ Retomar' : '⏸ Pausar';
+});
+
+// ── BLACKLIST ────────────────────────────────────────────────
+async function loadBlacklist() {
+  try {
+    const list = await api('/api/blacklist');
+    document.getElementById('blacklistBody').innerHTML = list.map(item => {
+      const phone = typeof item === 'string' ? item : item.number || item;
+      const date = item.date ? new Date(item.date).toLocaleString('pt-BR') : '—';
+      return `
+        <tr>
+          <td><span class="phone-chip">${formatPhone(phone)}</span></td>
+          <td class="text-muted">${date}</td>
+          <td><button class="btn btn-danger btn-sm" onclick="removeBlacklist('${phone}')">Remover</button></td>
+        </tr>
+      `;
+    }).join('') || '<tr><td colspan="3"><div class="empty-state"><div class="empty-icon">🚫</div><div class="empty-text">Nenhum número bloqueado</div></div></td></tr>';
+  } catch {}
+}
+
+function openAddBlacklist() { openModal('addBlacklistModal'); }
+
+async function confirmAddBlacklist() {
+  const phone = document.getElementById('blPhone').value.trim();
+  if (!phone) return;
+  try {
+    await api('/api/blacklist', { method: 'POST', body: JSON.stringify({ phone }) });
+    closeModal('addBlacklistModal');
+    document.getElementById('blPhone').value = '';
+    toast('Número bloqueado');
+    loadBlacklist();
+  } catch(e) { toast('Erro ao bloquear', 'error'); }
+}
+
+async function removeBlacklist(phone) {
+  try {
+    await api(`/api/blacklist/${phone}`, { method: 'DELETE' });
+    toast('Número desbloqueado');
+    loadBlacklist();
+  } catch(e) { toast('Erro ao remover', 'error'); }
+}
+
+// ── GLOBAL SEARCH ────────────────────────────────────────────
+document.getElementById('globalSearch').addEventListener('input', e => {
+  const q = e.target.value.trim();
+  if (!q) return;
+  navigate('crm');
+  setTimeout(() => {
+    api(`/api/leads`).then(leads => {
+      const filtered = leads.filter(l => l.nome.toLowerCase().includes(q.toLowerCase()) || l.telefone.includes(q));
+      document.getElementById('crmSubtitle').textContent = `${filtered.length} resultado(s) para "${q}"`;
+      document.getElementById('crmTableBody').innerHTML = filtered.map(l => `
+        <tr>
+          <td><strong style="color:var(--text-primary);">${l.nome}</strong></td>
+          <td><span class="phone-chip">${formatPhone(l.telefone)}</span></td>
+          <td><div class="score-ring"><div class="score-bar"><div class="score-fill" style="width:${Math.min(l.score,100)}%;background:${scoreColor(l.score)};"></div></div><span style="color:${scoreColor(l.score)};font-weight:700;">${l.score}</span></div></td>
+          <td>${stepBadge(l.etapa)}</td>
+          <td>${l.produto||'—'}</td>
+          <td>${l.valor?`R$${l.valor}`:'—'}</td>
+          <td>${timeAgo(l.ultimo_contato)}</td>
+          <td><button class="btn btn-ghost btn-sm" onclick="navigate('conversas');setTimeout(()=>openConv('${l.telefone}'),400)">💬</button></td>
+        </tr>
+      `).join('');
+    });
+  }, 100);
+});
+
+// ── INIT ─────────────────────────────────────────────────────
+async function initApp() {
+  refreshWAStatus();
+  setInterval(refreshWAStatus, 30000);
+  navigate('dashboard');
+  setInterval(() => { if (state.page === 'dashboard') loadDashboard(); }, 60000);
+}
+
+// Boot
+(async () => {
+  // Verifica se já tem token válido
+  if (state.token) {
+    try {
+      await api('/api/stats'); // testa o token
+      initApp();
+    } catch {
+      showLogin();
+    }
+  } else {
+    // Se não tem backend com auth (token não exigido), tenta direto
+    try {
+      await fetch('/api/stats').then(r => { if (r.status === 401) throw new Error(); });
+      // backend sem auth — inicia direto
+      initApp();
+    } catch {
+      showLogin();
+    }
+  }
+})();
+
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
+</script>
+</body>
+</html>

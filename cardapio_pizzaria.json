@@ -1,0 +1,56 @@
+﻿{
+    "pizzas": [
+        {
+            "id": 1,
+            "nome": "Margherita",
+            "ingredientes": "Molho de tomate, mussarela, manjericão",
+            "preco": 45.90,
+            "categoria": "Tradicional"
+        },
+        {
+            "id": 2,
+            "nome": "Pepperoni",
+            "ingredientes": "Molho de tomate, mussarela, pepperoni",
+            "preco": 52.90,
+            "categoria": "Tradicional"
+        },
+        {
+            "id": 3,
+            "nome": "Calabresa",
+            "ingredientes": "Molho de tomate, mussarela, calabresa, cebola",
+            "preco": 49.90,
+            "categoria": "Tradicional"
+        },
+        {
+            "id": 4,
+            "nome": "Portuguesa",
+            "ingredientes": "Molho de tomate, mussarela, presunto, ovo, cebola, ervilha",
+            "preco": 55.90,
+            "categoria": "Especial"
+        },
+        {
+            "id": 5,
+            "nome": "Quatro Queijos",
+            "ingredientes": "Molho de tomate, mussarela, provolone, parmesão, gorgonzola",
+            "preco": 58.90,
+            "categoria": "Especial"
+        },
+        {
+            "id": 6,
+            "nome": "Frango com Catupiry",
+            "ingredientes": "Molho de tomate, mussarela, frango desfiado, catupiry",
+            "preco": 54.90,
+            "categoria": "Especial"
+        }
+    ],
+    "bebidas": [
+        { "id": 101, "nome": "Refrigerante 2L", "preco": 12.00 },
+        { "id": 102, "nome": "Suco Natural 500ml", "preco": 8.00 },
+        { "id": 103, "nome": "Água Mineral", "preco": 4.00 }
+    ],
+    "bordas": [
+        { "id": 201, "nome": "Sem borda", "preco": 0.00 },
+        { "id": 202, "nome": "Borda de Catupiry", "preco": 5.00 },
+        { "id": 203, "nome": "Borda de Cheddar", "preco": 5.00 }
+    ]
+}

@@ -1,0 +1,92 @@
+﻿const { getPool } = require('./database');
+const logger = require('../utils/logger');
+
+class Produto {
+  static async create({ nome, descricao, preco, categoria, estoque, status }) {
+    try {
+      const pool = getPool();
+      if (!pool) throw new Error('Banco de dados não disponível');
+      
+      const result = await pool.query(
+        INSERT INTO produtos (nome, descricao, preco, categoria, estoque, status, created_at, updated_at)
+         VALUES (, , , , , , NOW(), NOW())
+         RETURNING *,
+        [nome, descricao, preco, categoria, estoque, status || 'Ativo']
+      );
+      return result.rows[0];
+    } catch (error) {
+      logger.error('Erro ao criar produto:', error);
+      throw error;
+    }
+  }
+
+  static async findAll() {
+    try {
+      const pool = getPool();
+      if (!pool) return [];
+      
+      const result = await pool.query(
+        'SELECT * FROM produtos ORDER BY id DESC'
+      );
+      return result.rows;
+    } catch (error) {
+      logger.error('Erro ao listar produtos:', error);
+      return [];
+    }
+  }
+
+  static async findById(id) {
+    try {
+      const pool = getPool();
+      if (!pool) return null;
+      
+      const result = await pool.query(
+        'SELECT * FROM produtos WHERE id = ',
+        [id]
+      );
+      return result.rows[0] || null;
+    } catch (error) {
+      logger.error('Erro ao buscar produto:', error);
+      return null;
+    }
+  }
+
+  static async update(id, data) {
+    try {
+      const pool = getPool();
+      if (!pool) throw new Error('Banco de dados não disponível');
+      
+      const { nome, descricao, preco, categoria, estoque, status } = data;
+      const result = await pool.query(
+        UPDATE produtos 
+         SET nome = , descricao = , preco = , categoria = , 
+             estoque = , status = , updated_at = NOW()
+         WHERE id = 
+         RETURNING *,
+        [nome, descricao, preco, categoria, estoque, status, id]
+      );
+      return result.rows[0];
+    } catch (error) {
+      logger.error('Erro ao atualizar produto:', error);
+      throw error;
+    }
+  }
+
+  static async delete(id) {
+    try {
+      const pool = getPool();
+      if (!pool) throw new Error('Banco de dados não disponível');
+      
+      await pool.query(
+        'DELETE FROM produtos WHERE id = ',
+        [id]
+      );
+      return true;
+    } catch (error) {
+      logger.error('Erro ao deletar produto:', error);
+      throw error;
+    }
+  }
+}
+
+module.exports = Produto;
