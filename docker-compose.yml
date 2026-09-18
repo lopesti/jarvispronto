@@ -1,0 +1,155 @@
+services:
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: jarvis-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./nginx/certs:/etc/nginx/certs:ro
+      - certbot_www:/var/www/certbot:ro
+    depends_on:
+      - api
+      - frontend
+    networks:
+      - jarvis-net
+
+  certbot:
+    image: certbot/certbot:latest
+    container_name: jarvis-certbot
+    volumes:
+      - certbot_www:/var/www/certbot
+      - certbot_etc:/etc/letsencrypt
+    profiles:
+      - certbot
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: jarvis-api
+    restart: unless-stopped
+    expose:
+      - "3000"
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      TRUST_PROXY: "1"
+      # Credenciais vêm do .env — nunca hardcode senha default em produção
+      DATABASE_URL: ${DATABASE_URL:-postgres://jarvis:${POSTGRES_PASSWORD}@postgres:5432/jarvispronto}
+      PGHOST: postgres
+      PGPORT: 5432
+      PGUSER: ${POSTGRES_USER:-jarvis}
+      PGPASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env — do not use default}
+      PGDATABASE: ${POSTGRES_DB:-jarvispronto}
+      REDIS_URL: redis://redis:6379
+      USE_MESSAGE_QUEUE: ${USE_MESSAGE_QUEUE:-0}
+    volumes:
+      - jarvis_auth:/app/auth_info_jarvis
+      - jarvis_logs:/app/logs
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    networks:
+      - jarvis-net
+
+  # Worker opcional (P1 itens 10+11): processa fila de mensagens separado da API
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: jarvis-worker
+    restart: unless-stopped
+    command: ["node", "engine/workers/messageWorker.js"]
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: ${DATABASE_URL:-postgres://jarvis:${POSTGRES_PASSWORD}@postgres:5432/jarvispronto}
+      REDIS_URL: redis://redis:6379
+      USE_MESSAGE_QUEUE: "1"
+    volumes:
+      - jarvis_auth:/app/auth_info_jarvis
+      - jarvis_logs:/app/logs
+    depends_on:
+      - postgres
+      - redis
+      - api
+    networks:
+      - jarvis-net
+    profiles:
+      - full
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.frontend
+      args:
+        NEXT_PUBLIC_API_URL: ""
+    container_name: jarvis-frontend
+    restart: unless-stopped
+    expose:
+      - "3001"
+    environment:
+      NEXT_PUBLIC_API_URL: ""
+      PORT: 3001
+      HOSTNAME: 0.0.0.0
+    depends_on:
+      - api
+    networks:
+      - jarvis-net
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: jarvis-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-jarvis}
+      # P0 item 4: senha obrigatória via env — falha se não definida
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-jarvispronto}
+    # P0 item 5: NÃO expor 5432 no host em produção (apenas rede interna)
+    expose:
+      - "5432"
+    volumes:
+      - jarvis_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - jarvis-net
+
+  redis:
+    image: redis:7-alpine
+    container_name: jarvis-redis
+    restart: unless-stopped
+    # P0 item 5: NÃO expor 6379 no host em produção
+    expose:
+      - "6379"
+    volumes:
+      - jarvis_redis:/data
+    networks:
+      - jarvis-net
+    # Redis agora sempre sobe (necessário para cache e fila)
+    # profiles removido para full availability
+
+volumes:
+  jarvis_auth:
+  jarvis_logs:
+  jarvis_pgdata:
+  jarvis_redis:
+  certbot_www:
+  certbot_etc:
+
+networks:
+  jarvis-net:
+    driver: bridge

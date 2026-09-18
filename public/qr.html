@@ -1,0 +1,31 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>QR Code - WhatsApp</title>
+    <style>
+        body { font-family: Arial; text-align: center; padding: 50px; background: #1a1a2e; color: white; }
+        .container { max-width: 500px; margin: 0 auto; }
+        h1 { color: #25D366; }
+        .qr { background: white; padding: 20px; border-radius: 10px; margin: 20px 0; }
+        img { max-width: 100%; }
+        .info { color: #aaa; font-size: 14px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📱 Conectar WhatsApp</h1>
+        <p>Escaneie o QR Code abaixo com seu WhatsApp</p>
+        <div class="qr">
+            <img src="/qr-image" alt="QR Code" id="qrImage">
+        </div>
+        <p class="info">O QR Code atualiza automaticamente a cada 30 segundos</p>
+        <button onclick="location.reload()">🔄 Atualizar QR</button>
+    </div>
+    <script>
+        setInterval(() => {
+            document.getElementById('qrImage').src = '/qr-image?' + Date.now();
+        }, 30000);
+    </script>
+</body>
+</html>
