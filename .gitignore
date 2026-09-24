@@ -24,3 +24,4 @@ nginx/certs/*.pem
 nginx/certs/*.key
 !nginx/certs/.gitkeep
 !nginx/certs/.gitignore
+jarvis-patch.zip
