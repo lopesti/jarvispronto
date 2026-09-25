@@ -1,0 +1,142 @@
+{
+  "nome": "JARVIS Comercial",
+  "produto": "Escova Alisadora 3 em 1",
+  "codigo": "ja3235j42j",
+  "ean": "7905340416715",
+  "systemPrompt": "Você é o JARVIS, assistente de vendas no WhatsApp da Escova Alisadora 3 em 1 (código ja3235j42j, EAN 7905340416715). Produto: escova pente alisadora com cerdas cerâmicas em V, íons negativos, aquecimento em 30 segundos, 5 níveis de temperatura (cerca de 130/140°C a 200°C), design anti-queimadura (exterior até ~50°C), cabo 360°, bivolt 110/220V, potência 45W, tecnologia PTC, uso doméstico e profissional. Alisa e ajuda a secar/modelar, reduz frizz. Kits de oferta: Kit 1 R$ 87,90 | Kit 2 R$ 129,90 | Kit 3 R$ 149,90. Seja cordial, objetivo e persuasivo sem agressividade. Respostas curtas em português do Brasil (até 3 frases). Tire dúvidas técnicas, trate objeções de preço e conduza ao fechamento. Não invente certificações médicas; foque em praticidade, segurança anti-queimadura e resultado liso.",
+  "fallbackMessage": "Desculpe, estou com instabilidade. Já anotei seu contato e retorno em breve!",
+  "produtos": [
+    {
+      "id": 1,
+      "nome": "Escova Alisadora 3 em 1 — Kit 1",
+      "preco": 87.9,
+      "preco_texto": "R$ 87,90",
+      "link": "https://mpago.la/18bSnE1"
+    },
+    {
+      "id": 2,
+      "nome": "Escova Alisadora 3 em 1 — Kit 2",
+      "preco": 129.9,
+      "preco_texto": "R$ 129,90",
+      "link": "https://mpago.la/2FYH1aH"
+    },
+    {
+      "id": 3,
+      "nome": "Escova Alisadora 3 em 1 — Kit 3",
+      "preco": 149.9,
+      "preco_texto": "R$ 149,90",
+      "link": "https://mpago.la/2mrRZJN"
+    }
+  ],
+  "ficha": {
+    "cerdas": "cerâmica em formato V",
+    "conteudo": "1 Escova Pente Alisadora de Cabelo, 1 Manual",
+    "funcoes": "Alisa, Seca",
+    "potencia": "45W",
+    "voltagem": "110V/220V bivolt automático",
+    "temperatura": "5 níveis (140°C a 200°C)",
+    "aquecimento": "PTC, rápido em ~30 segundos",
+    "cabo": "giratório 360°",
+    "isolamento": "Design anti-queimadura"
+  },
+  "palavrasChave": {
+    "compra": [
+      "quero",
+      "vou comprar",
+      "fechar",
+      "separar",
+      "pegar",
+      "manda",
+      "enviar",
+      "comprar",
+      "kit"
+    ],
+    "preco": [
+      "preço",
+      "preco",
+      "quanto",
+      "valor",
+      "custa",
+      "oferta",
+      "barato"
+    ],
+    "sim": [
+      "sim",
+      "pode",
+      "quero",
+      "manda",
+      "fecha",
+      "ok",
+      "opa",
+      "bora"
+    ],
+    "nao": [
+      "não",
+      "nao",
+      "recuso",
+      "dispenso",
+      "sem interesse"
+    ]
+  },
+  "leadScoreRules": [
+    {
+      "keywords": [
+        "quero",
+        "comprar",
+        "fechar",
+        "kit"
+      ],
+      "points": 30
+    },
+    {
+      "keywords": [
+        "preço",
+        "quanto",
+        "valor"
+      ],
+      "points": 15
+    },
+    {
+      "keywords": [
+        "pix",
+        "cartão",
+        "cartao",
+        "boleto"
+      ],
+      "points": 25
+    },
+    {
+      "keywords": [
+        "queima",
+        "temperatura",
+        "bivolt",
+        "cerâmica",
+        "ceramica"
+      ],
+      "points": 10
+    },
+    {
+      "keywords": [
+        "não",
+        "nao",
+        "depois"
+      ],
+      "points": -10
+    }
+  ],
+  "automationRules": [
+    {
+      "action": "IR_PARA_OFERTA",
+      "score": 30
+    },
+    {
+      "action": "IR_PARA_FECHAMENTO",
+      "score": 60
+    }
+  ],
+  "mensagens": {
+    "saudacao": "Olá! Sou o JARVIS. A Escova Alisadora 3 em 1 alisa com cerdas cerâmicas, aquece em ~30s e tem design anti-queimadura. Kits: 1 (R$ 87,90), 2 (R$ 129,90) e 3 (R$ 149,90). Qual te interessa?",
+    "uso": "Aqueça, pegue uma mecha e penteie devagar; repita para melhor resultado.",
+    "seguranca": "Interior até 200°C; exterior projetado para não queimar couro cabeludo/pele como um ferro comum."
+  }
+}
