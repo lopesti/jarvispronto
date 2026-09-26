@@ -5,8 +5,13 @@ const logger = require('../utils/logger');
 
 router.get('/', async (req, res) => {
     try {
+        const companyId = req.user?.companyId;
+        if (!companyId) {
+            return res.status(403).json({ error: 'Sem empresa vinculada', code: 'NO_COMPANY' });
+        }
         const result = await query(
-            'SELECT id, name, email, role, created_at FROM users ORDER BY id'
+            'SELECT id, name, email, role, created_at FROM users WHERE company_id = $1 ORDER BY id',
+            [companyId]
         );
         res.json(result.rows);
     } catch (error) {
@@ -17,10 +22,14 @@ router.get('/', async (req, res) => {
 
 router.get('/:id', async (req, res) => {
     try {
+        const companyId = req.user?.companyId;
+        if (!companyId) {
+            return res.status(403).json({ error: 'Sem empresa vinculada', code: 'NO_COMPANY' });
+        }
         const { id } = req.params;
         const result = await query(
-            'SELECT id, name, email, role, created_at FROM users WHERE id = $1',
-            [id]
+            'SELECT id, name, email, role, created_at FROM users WHERE id = $1 AND company_id = $2',
+            [id, companyId]
         );
         if (result.rows.length === 0) {
             return res.status(404).json({ error: 'Usuario nao encontrado' });

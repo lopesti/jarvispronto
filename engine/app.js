@@ -70,8 +70,6 @@ app.use('/api/whatsapp', require('./routes/whatsapp'));
 // INTERNAL_SIM_TOKEN dentro da própria rota — ver engine/routes/internal.js
 app.use('/internal', require('./routes/internal'));
 
-app.use('/qr', require('./routes/qr'));
-app.use('/qr-image', require('./routes/qr-image'));
 
 app.get('/health', (req, res) => {
     res.json({
