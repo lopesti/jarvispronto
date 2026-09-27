@@ -27,3 +27,7 @@ nginx/certs/*.key
 jarvis-patch.zip
 
 *.bak
+
+*.bak[0-9]
+backup-*.sql
+backups-db/

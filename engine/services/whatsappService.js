@@ -182,6 +182,10 @@ async function connectCompany(companyId, onMessage) {
           continue;
         }
 
+        try {
+          const { inc } = require('../utils/metrics');
+          inc('messages_received_total', id);
+        } catch (_) {}
         await handler(from, text, sock, id);
       } catch (err) {
         logger.error(`[WA][company=${id}] Erro mensagem: ${err.message}`);

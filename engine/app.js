@@ -1,4 +1,4 @@
-require('dotenv').config({ path: require('path').resolve(__dirname, '../.env') });
+﻿require('dotenv').config({ path: require('path').resolve(__dirname, '../.env') });
 const express = require('express');
 const cors = require('cors');
 const rateLimit = require('express-rate-limit');
@@ -96,6 +96,7 @@ app.use('/api/conversations', authMiddleware, require('./routes/conversations'))
 app.use('/api/etiquetas', authMiddleware, require('./routes/etiquetas'));
 app.use('/api/simulation', authMiddleware, require('./routes/simulation'));
 app.use('/api/channels', require('./routes/channels'));
+app.use('/api/companies', authMiddleware, require('./routes/companies'));
 app.use('/api/whatsapp', require('./routes/whatsapp'));
 
 app.use('/internal', require('./routes/internal'));
@@ -103,6 +104,16 @@ app.use('/internal', require('./routes/internal'));
 // ═══════════════════════════════════════════════════════════
 //  Health check
 // ═══════════════════════════════════════════════════════════
+// =============================================================
+//  Metrics (BUG-032 - isolado por tenant)
+// =============================================================
+app.get('/metrics', (req, res) => {
+    const { getMetrics } = require('./utils/metrics');
+    const companyId = req.query.companyId ? Number(req.query.companyId) : null;
+    res.set('Content-Type', 'text/plain; version=0.0.4');
+    res.send(getMetrics(companyId));
+});
+
 app.get('/health', (req, res) => {
     res.json({
         status: 'ok',

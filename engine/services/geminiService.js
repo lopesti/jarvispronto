@@ -5,6 +5,7 @@ const path = require('path');
 const crypto = require('crypto');
 const logger = require('../utils/logger');
 const cache = require('./cacheService');
+const db = require('../models/database');
 
 const botConfig = JSON.parse(
   fs.readFileSync(path.join(__dirname, '../../bot_volumetrao.json'), 'utf8')
@@ -48,6 +49,61 @@ function buildCacheKey(userInput, companyId) {
 }
 
 // ═══════════════════════════════════════════════════════════
+//  Prompt por tenant (BUG-009)
+// ═══════════════════════════════════════════════════════════
+
+const _promptCache = new Map();
+const PROMPT_TTL_MS = 60 * 1000;
+
+async function getSystemPrompt(companyId) {
+  const cid = Number(companyId);
+  const fallback = {
+    systemPrompt: botConfig.systemPrompt,
+    fallbackMessage: botConfig.fallbackMessage,
+  };
+  if (!cid || Number.isNaN(cid)) return fallback;
+
+  const now = Date.now();
+  const hit = _promptCache.get(cid);
+  if (hit && hit.expiresAt > now) return hit;
+
+  try {
+    const { rows } = await db.query(
+      `SELECT config->>'systemPrompt'    AS system_prompt,
+              config->>'fallbackMessage' AS fallback_message
+         FROM companies
+        WHERE id = $1`,
+      [cid]
+    );
+    const row = (rows && rows[0]) || {};
+    const result = {
+      systemPrompt:
+        row.system_prompt && String(row.system_prompt).trim()
+          ? row.system_prompt
+          : botConfig.systemPrompt,
+      fallbackMessage:
+        row.fallback_message && String(row.fallback_message).trim()
+          ? row.fallback_message
+          : botConfig.fallbackMessage,
+      expiresAt: now + PROMPT_TTL_MS,
+    };
+    _promptCache.set(cid, result);
+    return result;
+  } catch (err) {
+    logger.warn(`[gemini] getSystemPrompt(${cid}) falhou: ${err.message}`);
+    return fallback;
+  }
+}
+
+function invalidateSystemPromptCache(companyId) {
+  if (companyId === undefined || companyId === null) {
+    _promptCache.clear();
+    return;
+  }
+  _promptCache.delete(Number(companyId));
+}
+
+// ═══════════════════════════════════════════════════════════
 //  Geração com cache isolado por tenant
 // ═══════════════════════════════════════════════════════════
 
@@ -58,6 +114,7 @@ async function generateResponse(userInput, history = [], companyId) {
     return await generateWithoutCache(userInput, history);
   }
 
+  const { systemPrompt, fallbackMessage } = await getSystemPrompt(cid);
   const cacheKey = buildCacheKey(userInput, cid);
 
   // 1. Cache
@@ -73,8 +130,8 @@ async function generateResponse(userInput, history = [], companyId) {
   try {
     if (groq) {
       logger.info(`[gemini] Groq company=${cid}...`);
-      const response = await generateWithGroq(userInput, history);
-      await cache.set(cacheKey, response, 3600); // 1 hora
+      const response = await generateWithGroq(userInput, history, systemPrompt);
+      await cache.set(cacheKey, response, 3600);
       logger.info(`[gemini] Resposta gerada pelo Groq company=${cid}`);
       return response;
     }
@@ -86,22 +143,21 @@ async function generateResponse(userInput, history = [], companyId) {
   // 3. Gemini
   try {
     if (!genAI) throw new Error('Gemini nao configurado');
-    const response = await generateWithGemini(userInput, history);
+    const response = await generateWithGemini(userInput, history, systemPrompt);
     await cache.set(cacheKey, response, 3600);
     logger.info(`[gemini] Resposta gerada pelo Gemini company=${cid}`);
     return response;
   } catch (err) {
     logger.error(`[gemini] Ambas IAs falharam: ${err.message}`);
 
-    const fallback =
-      botConfig.fallbackMessage ||
+    const fb =
+      fallbackMessage ||
       'Desculpe, estou com problemas tecnicos. Tente novamente mais tarde.';
 
-    // Cacheia fallback por 60s (evita martelar a IA quando ela esta fora)
-    await cache.set(cacheKey, fallback, 60);
+    await cache.set(cacheKey, fb, 60);
     logger.info(`[gemini] Fallback cacheado company=${cid} TTL=60s`);
 
-    return fallback;
+    return fb;
   }
 }
 
@@ -110,14 +166,14 @@ async function generateResponse(userInput, history = [], companyId) {
  */
 async function generateWithoutCache(userInput, history) {
   try {
-    if (groq) return await generateWithGroq(userInput, history);
+    if (groq) return await generateWithGroq(userInput, history, botConfig.systemPrompt);
     throw new Error('Groq nao configurado');
   } catch (error) {
     logger.warn('[gemini] Groq falhou: ' + error.message);
   }
   try {
     if (!genAI) throw new Error('Gemini nao configurado');
-    return await generateWithGemini(userInput, history);
+    return await generateWithGemini(userInput, history, botConfig.systemPrompt);
   } catch (err) {
     logger.error('[gemini] Ambas IAs falharam: ' + err.message);
     return (
@@ -131,15 +187,15 @@ async function generateWithoutCache(userInput, history) {
 //  Providers
 // ═══════════════════════════════════════════════════════════
 
-async function generateWithGroq(userInput, history) {
+async function generateWithGroq(userInput, history, systemPrompt) {
   const messages = [
-    { role: 'system', content: botConfig.systemPrompt },
+    { role: 'system', content: systemPrompt || botConfig.systemPrompt },
     ...history.map((h) => ({ role: h.role, content: h.content })),
     { role: 'user', content: userInput },
   ];
 
   const response = await groq.chat.completions.create({
-    model: 'llama-3.3-70b-versatile',
+    model: 'openai/gpt-oss-120b',
     messages,
     max_tokens: 200,
     temperature: 0.85,
@@ -148,8 +204,11 @@ async function generateWithGroq(userInput, history) {
   return response.choices[0].message.content;
 }
 
-async function generateWithGemini(userInput, history) {
-  const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash-exp' });
+async function generateWithGemini(userInput, history, systemPrompt) {
+  const model = genAI.getGenerativeModel({
+    model: 'gemini-2.0-flash-exp',
+    systemInstruction: systemPrompt || botConfig.systemPrompt,
+  });
 
   const chat = model.startChat({
     history: history.map((h) => ({
@@ -162,4 +221,10 @@ async function generateWithGemini(userInput, history) {
   return result.response.text();
 }
 
-module.exports = { generateResponse, buildCacheKey, normalizeInput };
+module.exports = {
+  generateResponse,
+  buildCacheKey,
+  normalizeInput,
+  getSystemPrompt,
+  invalidateSystemPromptCache,
+};
