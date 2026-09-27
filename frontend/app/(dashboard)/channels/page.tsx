@@ -1,10 +1,26 @@
 "use client";
 
 import { Header } from "@/components/layout/header";
-import { useQuery } from "@tanstack/react-query";
-import { getChannelStatus, type ChannelStatus } from "@/lib/api";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
+import {
+  getChannelStatus,
+  getWhatsAppStatus,
+  connectWhatsApp,
+  disconnectWhatsApp,
+  getWhatsAppQr,
+  type ChannelStatus,
+} from "@/lib/api";
 import { cn } from "@/lib/utils";
-import { Radio, ExternalLink, CheckCircle2, Circle } from "lucide-react";
+import {
+  Radio,
+  CheckCircle2,
+  Circle,
+  X,
+  Loader2,
+  RefreshCw,
+  LogOut,
+} from "lucide-react";
 
 const PRIMARY = ["whatsapp", "instagram", "facebook"] as const;
 const ROADMAP = ["mercadolivre", "shopee", "tiktok", "youtube"] as const;
@@ -29,14 +45,121 @@ function StatusDot({ ch }: { ch?: ChannelStatus }) {
   );
 }
 
+/** Modal de QR Code para conectar WhatsApp */
+function WhatsQrModal({ onClose }: { onClose: () => void }) {
+  const qc = useQueryClient();
+
+  const { data: status, isLoading } = useQuery({
+    queryKey: ["whatsapp-status"],
+    queryFn: getWhatsAppStatus,
+    refetchInterval: 3000,
+  });
+
+  const { data: qrData } = useQuery({
+    queryKey: ["whatsapp-qr"],
+    queryFn: getWhatsAppQr,
+    enabled: status?.hasQr === true,
+    refetchInterval: 25000,
+  });
+
+  const connectMut = useMutation({
+    mutationFn: connectWhatsApp,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["whatsapp-status"] }),
+  });
+
+  const disconnectMut = useMutation({
+    mutationFn: () => disconnectWhatsApp(false),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["whatsapp-status"] }),
+  });
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+      <div className="w-full max-w-md rounded-xl border border-border bg-card p-6">
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-lg font-semibold">Conectar WhatsApp</h2>
+          <button
+            onClick={onClose}
+            className="rounded-md p-1 hover:bg-secondary"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        {status?.connected ? (
+          <div className="space-y-4 text-center">
+            <CheckCircle2 className="mx-auto h-12 w-12 text-emerald-400" />
+            <p className="text-sm font-medium">WhatsApp conectado</p>
+            <p className="text-xs text-muted-foreground">
+              Empresa #{status.companyId}
+            </p>
+            <button
+              onClick={() => disconnectMut.mutate()}
+              disabled={disconnectMut.isPending}
+              className="inline-flex items-center gap-2 rounded-lg border border-red-500/30 px-4 py-2 text-sm text-red-400 hover:bg-red-500/10 disabled:opacity-60"
+            >
+              <LogOut className="h-3.5 w-3.5" />
+              Desconectar
+            </button>
+          </div>
+        ) : !status?.hasQr ? (
+          <div className="space-y-4 text-center">
+            <Radio className="mx-auto h-12 w-12 text-muted-foreground" />
+            <p className="text-sm text-muted-foreground">
+              Clique abaixo para iniciar uma sessão e gerar o QR Code.
+            </p>
+            <button
+              onClick={() => connectMut.mutate()}
+              disabled={connectMut.isPending}
+              className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
+            >
+              {connectMut.isPending ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <RefreshCw className="h-3.5 w-3.5" />
+              )}
+              Iniciar conexão
+            </button>
+          </div>
+        ) : qrData?.qrImage ? (
+          <div className="space-y-4 text-center">
+            <div className="mx-auto w-fit rounded-lg bg-white p-4">
+              <img src={qrData.qrImage} alt="QR Code" className="h-64 w-64" />
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Abra o WhatsApp no celular → Aparelhos conectados → Conectar
+              aparelho → Aponte para o QR
+            </p>
+            <p className="text-[11px] text-muted-foreground">
+              O QR atualiza automaticamente a cada 25s.
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-4 text-center">
+            <Loader2 className="mx-auto h-12 w-12 animate-spin text-muted-foreground" />
+            <p className="text-sm text-muted-foreground">Gerando QR Code...</p>
+          </div>
+        )}
+
+        {isLoading && !status && (
+          <p className="mt-4 text-center text-xs text-muted-foreground">
+            Consultando estado...
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function ChannelCard({
   id,
   ch,
   primary,
+  onConnectWhatsApp,
 }: {
   id: string;
   ch?: ChannelStatus;
   primary?: boolean;
+  onConnectWhatsApp?: () => void;
 }) {
   const label = ch?.label || id;
   const connected = !!ch?.connected || ch?.status === "connected";
@@ -52,9 +175,7 @@ function ChannelCard({
       <div className="flex items-start justify-between gap-2">
         <div>
           <h3 className="font-semibold capitalize">{label}</h3>
-          <p className="mt-1 text-xs text-muted-foreground">
-            {ch?.note || "—"}
-          </p>
+          <p className="mt-1 text-xs text-muted-foreground">{ch?.note || "—"}</p>
         </div>
         <StatusDot ch={ch} />
       </div>
@@ -68,18 +189,16 @@ function ChannelCard({
 
       {isWa && (
         <div className="mt-4 flex flex-wrap gap-2">
-          <a
-            href="/qr"
-            target="_blank"
-            rel="noreferrer"
+          <button
+            type="button"
+            onClick={onConnectWhatsApp}
             className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90"
           >
-            {connected ? "Ver sessão" : "Conectar / QR"}
-            <ExternalLink className="h-3 w-3" />
-          </a>
+            {connected ? "Gerenciar sessão" : "Conectar WhatsApp"}
+          </button>
           {!connected && (
             <span className="inline-flex items-center gap-1 text-[11px] text-amber-200/90">
-              <Circle className="h-3 w-3" /> Escaneie o QR no celular
+              <Circle className="h-3 w-3" /> Escaneie o QR dentro do painel
             </span>
           )}
           {connected && (
@@ -100,6 +219,9 @@ function ChannelCard({
 }
 
 export default function ChannelsPage() {
+  const [showQrModal, setShowQrModal] = useState(false);
+  const qc = useQueryClient();
+
   const { data, isLoading } = useQuery({
     queryKey: ["channels"],
     queryFn: getChannelStatus,
@@ -125,19 +247,16 @@ export default function ChannelsPage() {
                 Conecte-se a um canal para que as mensagens apareçam no inbox
               </p>
               <p className="mt-1 text-xs text-muted-foreground">
-                Com o SaleSmartly em mente: um CTA claro. No Jarvis o canal
-                principal é o WhatsApp (Baileys). Instagram/Messenger usam o
-                mesmo funil quando o Meta estiver configurado.
+                O QR Code é gerado dentro do painel. Clique em "Conectar
+                WhatsApp", escaneie com o celular e pronto.
               </p>
             </div>
-            <a
-              href="/qr"
-              target="_blank"
-              rel="noreferrer"
+            <button
+              onClick={() => setShowQrModal(true)}
               className="inline-flex shrink-0 items-center gap-2 rounded-lg bg-primary px-4 py-2 text-xs font-medium text-primary-foreground hover:bg-primary/90"
             >
               Conectar WhatsApp
-            </a>
+            </button>
           </div>
         )}
 
@@ -150,7 +269,15 @@ export default function ChannelsPage() {
         </p>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {PRIMARY.map((key) => (
-            <ChannelCard key={key} id={key} ch={data?.[key]} primary />
+            <ChannelCard
+              key={key}
+              id={key}
+              ch={data?.[key]}
+              primary
+              onConnectWhatsApp={
+                key === "whatsapp" ? () => setShowQrModal(true) : undefined
+              }
+            />
           ))}
         </div>
 
@@ -169,9 +296,7 @@ export default function ChannelsPage() {
           </p>
           <ol className="mt-2 list-decimal space-y-1 pl-5 text-xs">
             <li>Crie um app em developers.facebook.com</li>
-            <li>
-              Defina no .env: META_VERIFY_TOKEN, META_PAGE_ACCESS_TOKEN
-            </li>
+            <li>Defina no .env: META_VERIFY_TOKEN, META_PAGE_ACCESS_TOKEN</li>
             <li>
               Webhook: GET/POST https://seu-dominio/api/channels/meta/webhook
             </li>
@@ -179,6 +304,15 @@ export default function ChannelsPage() {
           </ol>
         </div>
       </div>
+
+      {showQrModal && (
+        <WhatsQrModal
+          onClose={() => {
+            setShowQrModal(false);
+            qc.invalidateQueries({ queryKey: ["channels"] });
+          }}
+        />
+      )}
     </>
   );
 }

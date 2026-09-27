@@ -34,26 +34,40 @@ function getQueue() {
   }
 }
 
+/**
+ * Enfileira mensagem recebida.
+ * @param {{ from, text, channel, companyId, rid }} payload
+ */
 async function enqueueIncoming(payload) {
+  const companyId = Number(payload.companyId);
+
+  if (!companyId || Number.isNaN(companyId)) {
+    logger.error('[queue] companyId ausente — impossivel enfileirar');
+    return;
+  }
+
   const q = getQueue();
+
   if (!q) {
+    // Fallback inline: processa imediatamente
     logger.warn('[queue] Fila indisponivel — processando inline');
     const messageController = require('../controllers/messageController');
     const whatsappService = require('./whatsappService');
-    await messageController.handleMessage(
-      payload.from,
-      payload.text,
-      whatsappService.getSock(),
-      { rid: payload.rid }
-    );
+    const sock = whatsappService.getSock(companyId);
+    await messageController.handleMessage(payload.from, payload.text, sock, {
+      rid: payload.rid,
+      companyId,
+    });
     return;
   }
+
   await q.add(
     'incoming',
     {
       from: payload.from,
       text: payload.text,
       channel: payload.channel || 'whatsapp',
+      companyId: companyId, // ← BUG-028 corrigido: propaga tenant no job
       rid: payload.rid || null,
       enqueuedAt: Date.now(),
     },
@@ -64,7 +78,10 @@ async function enqueueIncoming(payload) {
       backoff: { type: 'exponential', delay: 2000 },
     }
   );
-  logger.info(`[queue] Enfileirado de ${payload.from} rid=${payload.rid || '-'}`);
+
+  logger.info(
+    `[queue] Enfileirado company=${companyId} from=${payload.from} rid=${payload.rid || '-'}`
+  );
 }
 
 module.exports = { enqueueIncoming, getQueue, getConnection, QUEUE_NAME };

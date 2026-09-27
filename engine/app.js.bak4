@@ -18,11 +18,6 @@ if (missing.length) {
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// ═══════════════════════════════════════════════════════════
-//  Modo fila vs inline
-// ═══════════════════════════════════════════════════════════
-const useQueue = process.env.USE_MESSAGE_QUEUE === '1';
-
 if (process.env.TRUST_PROXY === '1') {
     app.set('trust proxy', 1);
 }
@@ -46,11 +41,15 @@ const isProd = process.env.NODE_ENV === 'production';
 app.use(
     cors({
         origin: (origin, cb) => {
+            // Sem Origin (same-origin via nginx, curl, healthchecks) → permite
             if (!origin) return cb(null, true);
+            // Origem na allowlist → permite
             if (allowedOrigins.includes(origin)) return cb(null, true);
-            if (/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)) {
+            // Em dev, aceita qualquer localhost/127.0.0.1
+            if (!isProd && /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)) {
                 return cb(null, true);
             }
+            // Qualquer outra → REJEITA
             logger.warn('[CORS] Origem rejeitada: ' + origin);
             return cb(new Error('Not allowed by CORS'), false);
         },
@@ -58,6 +57,7 @@ app.use(
     })
 );
 
+// Handler de erro CORS → 403
 app.use((err, req, res, next) => {
     if (err && err.message === 'Not allowed by CORS') {
         return res.status(403).json({ error: 'Origin not allowed' });
@@ -98,49 +98,37 @@ app.use('/api/simulation', authMiddleware, require('./routes/simulation'));
 app.use('/api/channels', require('./routes/channels'));
 app.use('/api/whatsapp', require('./routes/whatsapp'));
 
+// Usado apenas pelo jarvis-simulator (rede interna do Docker)
 app.use('/internal', require('./routes/internal'));
 
 // ═══════════════════════════════════════════════════════════
-//  Health check
+//  Health check (BUG-003 CORRIGIDO — version atualizada)
 // ═══════════════════════════════════════════════════════════
 app.get('/health', (req, res) => {
     res.json({
         status: 'ok',
         product: 'Escova Alisadora 3 em 1',
         version: '1.6.0',
-        mode: useQueue ? 'queue' : 'inline',
         timestamp: new Date().toISOString(),
     });
 });
 
 // ═══════════════════════════════════════════════════════════
-//  WhatsApp — modo fila vs inline
+//  WhatsApp (multi-tenant — sem boot global)
 // ═══════════════════════════════════════════════════════════
 const whatsappService = require('./services/whatsappService');
 
-if (useQueue) {
-    // ─── MODO FILA ───
-    // API NAO abre socket WA — worker eh dono unico
-    logger.info('[boot] Modo fila ativo (USE_MESSAGE_QUEUE=1)');
-    logger.info('[boot] Socket WA: gerenciado pelo worker (docker compose --profile full up)');
-} else {
-    // ─── MODO INLINE ───
-    // API abre socket WA e processa direto
-    logger.info('[boot] Modo inline (USE_MESSAGE_QUEUE=0)');
-    logger.info('[boot] WhatsApp: modo multi-empresa. Conecte em POST /api/whatsapp/connect');
+logger.info('WhatsApp: modo multi-empresa. Conecte em POST /api/whatsapp/connect apos login.');
 
-    // Auto-connect opcional
-    if (process.env.WA_AUTO_CONNECT_COMPANY && process.env.WA_AUTO_CONNECT_COMPANY !== '0') {
-        const cid = Number(process.env.WA_AUTO_CONNECT_COMPANY) || 1;
-        whatsappService
-            .connectCompany(cid, (from, text, sock, companyId) => {
-                const messageController = require('./controllers/messageController');
-                return messageController.handleMessage(from, text, sock, {
-                    companyId: companyId || cid,
-                });
-            })
-            .catch((e) => logger.error('WA auto-connect: ' + e.message));
-    }
+// Opcional: auto-conectar empresa X se WA_AUTO_CONNECT_COMPANY=X
+if (process.env.WA_AUTO_CONNECT_COMPANY) {
+    const cid = Number(process.env.WA_AUTO_CONNECT_COMPANY) || 1;
+    whatsappService
+        .connectCompany(cid, (from, text, sock, companyId) => {
+            const messageController = require('./controllers/messageController');
+            return messageController.handleMessage(from, text, sock, { companyId: companyId || cid });
+        })
+        .catch((e) => logger.error('WA auto-connect: ' + e.message));
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -150,14 +138,13 @@ const { runMigrations } = require('./models/migrate');
 runMigrations();
 
 app.listen(PORT, () => {
-    logger.info(`Servidor rodando em http://0.0.0.0:${PORT} v1.6.0 mode=${useQueue ? 'queue' : 'inline'}`);
+    logger.info('Servidor rodando em http://0.0.0.0:' + PORT + ' v1.6.0');
     logger.info('Via Nginx: http://localhost/');
+    logger.info('WhatsApp: POST /api/whatsapp/connect (autenticado)');
 });
 
 process.on('SIGINT', async () => {
     logger.info('Desligando...');
-    if (!useQueue) {
-        await whatsappService.disconnect();
-    }
+    await whatsappService.disconnect();
     process.exit(0);
 });

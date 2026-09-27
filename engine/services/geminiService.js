@@ -17,55 +17,119 @@ const groq = process.env.GROQ_API_KEY
   ? new Groq({ apiKey: process.env.GROQ_API_KEY })
   : null;
 
-function buildCacheKey(userInput, history) {
-  const histHash = crypto
-    .createHash('sha256')
-    .update(JSON.stringify(history || []))
-    .digest('hex')
-    .slice(0, 16);
-  const inputHash = crypto
-    .createHash('sha256')
-    .update(String(userInput || ''))
-    .digest('hex')
-    .slice(0, 16);
-  return `ia_${inputHash}_${histHash}`;
+// ═══════════════════════════════════════════════════════════
+//  Cache key com tenant (BUG-008 corrigido)
+//  Sem histórico na chave: input igual → cache hit
+// ═══════════════════════════════════════════════════════════
+
+function normalizeInput(text) {
+  return String(text || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[?!.,;]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
-async function generateResponse(userInput, history = []) {
-  const cacheKey = buildCacheKey(userInput, history);
+/**
+ * Chave de cache isolada por tenant.
+ * NÃO inclui histórico — se a pergunta é a mesma, resposta é a mesma.
+ */
+function buildCacheKey(userInput, companyId) {
+  const cid = Number(companyId) || 0;
+  const inputHash = crypto
+    .createHash('sha256')
+    .update(normalizeInput(userInput))
+    .digest('hex')
+    .slice(0, 16);
 
+  return `ia:${cid}:${inputHash}`;
+}
+
+// ═══════════════════════════════════════════════════════════
+//  Geração com cache isolado por tenant
+// ═══════════════════════════════════════════════════════════
+
+async function generateResponse(userInput, history = [], companyId) {
+  const cid = Number(companyId);
+  if (!cid || Number.isNaN(cid)) {
+    logger.warn('[gemini] companyId ausente — gerando sem cache');
+    return await generateWithoutCache(userInput, history);
+  }
+
+  const cacheKey = buildCacheKey(userInput, cid);
+
+  // 1. Cache
   const cached = await cache.get(cacheKey);
   if (cached) {
-    logger.info('[gemini] Resposta do cache: ' + String(userInput).slice(0, 40));
+    logger.info(
+      `[gemini] Cache HIT company=${cid} input="${String(userInput).slice(0, 40)}"`
+    );
     return cached;
   }
 
+  // 2. Groq
   try {
     if (groq) {
-      logger.info('[gemini] Tentando Groq...');
+      logger.info(`[gemini] Groq company=${cid}...`);
       const response = await generateWithGroq(userInput, history);
-      await cache.set(cacheKey, response, 300);
-      logger.info('[gemini] Resposta gerada pelo Groq');
+      await cache.set(cacheKey, response, 3600); // 1 hora
+      logger.info(`[gemini] Resposta gerada pelo Groq company=${cid}`);
       return response;
     }
     throw new Error('Groq nao configurado');
   } catch (error) {
-    logger.warn('[gemini] Groq falhou, usando Gemini: ' + error.message);
-    try {
-      if (!genAI) throw new Error('Gemini nao configurado');
-      const response = await generateWithGemini(userInput, history);
-      await cache.set(cacheKey, response, 300);
-      logger.info('[gemini] Resposta gerada pelo Gemini');
-      return response;
-    } catch (err) {
-      logger.error('[gemini] Ambas IAs falharam: ' + err.message);
-      return (
-        botConfig.fallbackMessage ||
-        'Desculpe, estou com problemas tecnicos. Tente novamente mais tarde.'
-      );
-    }
+    logger.warn(`[gemini] Groq falhou (${error.message}), usando Gemini...`);
+  }
+
+  // 3. Gemini
+  try {
+    if (!genAI) throw new Error('Gemini nao configurado');
+    const response = await generateWithGemini(userInput, history);
+    await cache.set(cacheKey, response, 3600);
+    logger.info(`[gemini] Resposta gerada pelo Gemini company=${cid}`);
+    return response;
+  } catch (err) {
+    logger.error(`[gemini] Ambas IAs falharam: ${err.message}`);
+
+    const fallback =
+      botConfig.fallbackMessage ||
+      'Desculpe, estou com problemas tecnicos. Tente novamente mais tarde.';
+
+    // Cacheia fallback por 60s (evita martelar a IA quando ela esta fora)
+    await cache.set(cacheKey, fallback, 60);
+    logger.info(`[gemini] Fallback cacheado company=${cid} TTL=60s`);
+
+    return fallback;
   }
 }
+
+/**
+ * Fallback sem cache (quando companyId nao e informado).
+ */
+async function generateWithoutCache(userInput, history) {
+  try {
+    if (groq) return await generateWithGroq(userInput, history);
+    throw new Error('Groq nao configurado');
+  } catch (error) {
+    logger.warn('[gemini] Groq falhou: ' + error.message);
+  }
+  try {
+    if (!genAI) throw new Error('Gemini nao configurado');
+    return await generateWithGemini(userInput, history);
+  } catch (err) {
+    logger.error('[gemini] Ambas IAs falharam: ' + err.message);
+    return (
+      botConfig.fallbackMessage ||
+      'Desculpe, estou com problemas tecnicos. Tente novamente mais tarde.'
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+//  Providers
+// ═══════════════════════════════════════════════════════════
 
 async function generateWithGroq(userInput, history) {
   const messages = [
@@ -98,4 +162,4 @@ async function generateWithGemini(userInput, history) {
   return result.response.text();
 }
 
-module.exports = { generateResponse, buildCacheKey };
+module.exports = { generateResponse, buildCacheKey, normalizeInput };

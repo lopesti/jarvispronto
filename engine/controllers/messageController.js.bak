@@ -95,8 +95,7 @@ async function handleMessage(from, text, sock, opts = {}) {
     let responseText;
     try {
       const geminiService = require('../services/geminiService');
-      // BUG-008 CORRIGIDO: passa companyId para isolar cache por tenant
-      responseText = await geminiService.generateResponse(body, history, companyId);
+      responseText = await geminiService.generateResponse(body, history);
     } catch (aiErr) {
       logger.error(`[${rid}] IA: ${aiErr.message}`);
       responseText =

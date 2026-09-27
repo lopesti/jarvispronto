@@ -65,6 +65,7 @@ export type AuthUser = {
   email: string;
   role?: string;
   created_at?: string;
+  companyId?: number;
 };
 
 export type Conversation = {
@@ -341,4 +342,35 @@ export async function updateProduto(
 export async function deleteProduto(id: number | string) {
   const { data } = await api.delete(`/api/produtos/${id}`);
   return data;
+}
+
+// ═══════════════════════════════════════════════════════════
+//  WhatsApp multi-tenant (por empresa)
+// ═══════════════════════════════════════════════════════════
+
+export type WhatsAppStatus = {
+  companyId: number;
+  state: string;
+  connected: boolean;
+  hasQr: boolean;
+};
+
+export async function getWhatsAppStatus() {
+  const { data } = await api.get("/api/whatsapp/status");
+  return data as WhatsAppStatus;
+}
+
+export async function connectWhatsApp() {
+  const { data } = await api.post("/api/whatsapp/connect");
+  return data as WhatsAppStatus & { message?: string };
+}
+
+export async function disconnectWhatsApp(clearAuth = false) {
+  const { data } = await api.post("/api/whatsapp/disconnect", { clearAuth });
+  return data as { message: string; clearAuth: boolean };
+}
+
+export async function getWhatsAppQr() {
+  const { data } = await api.get("/api/whatsapp/qr");
+  return data as { qrImage?: string; hint?: string } & WhatsAppStatus;
 }

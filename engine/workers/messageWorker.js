@@ -1,7 +1,12 @@
 /**
  * Worker separado — único dono do socket WA quando USE_MESSAGE_QUEUE=1
+ *
+ * BUG-027 corrigido: processa multiplos tenants, nao so empresa 1.
+ * BUG-028 corrigido: le companyId do job e passa pra tudo.
  */
-require('dotenv').config({ path: require('path').resolve(__dirname, '../../.env') });
+require('dotenv').config({
+  path: require('path').resolve(__dirname, '../../.env'),
+});
 const logger = require('../utils/logger');
 const { QUEUE_NAME, getConnection } = require('../services/messageQueue');
 
@@ -16,20 +21,44 @@ async function start() {
   const messageController = require('../controllers/messageController');
   const whatsappService = require('../services/whatsappService');
 
-  // Worker é o único processo que abre o socket em modo fila
-  await whatsappService.connect(async () => {
-    /* novas mensagens entram via fila (API enfileira) */
-  });
-  logger.info('[worker] Socket WA aberto neste processo (dono unico)');
+  // BUG-027 corrigido: NAO conecta empresa 1 automaticamente.
+  // O socket e aberto por tenant via POST /api/whatsapp/connect.
+  // O worker usa o socket do tenant que estiver no job.
+  logger.info(
+    '[worker] Socket WA: gerenciado por tenant (POST /api/whatsapp/connect)'
+  );
 
   const worker = new Worker(
     QUEUE_NAME,
     async (job) => {
-      const { from, text, channel, rid } = job.data;
+      const { from, text, channel, companyId, rid } = job.data;
       const id = rid || job.id;
-      logger.info(`[worker][${id}] Processando de ${from} (${channel || 'whatsapp'})`);
-      const sock = whatsappService.getSock();
-      await messageController.handleMessage(from, text, sock, { rid: id });
+
+      if (!companyId || Number.isNaN(Number(companyId))) {
+        logger.error(`[worker][${id}] Job sem companyId — descartando`);
+        throw new Error('companyId obrigatorio no job');
+      }
+
+      const cid = Number(companyId);
+
+      // BUG-027 corrigido: pega o socket DO TENANT, nao global
+      const sock = whatsappService.getSock(cid);
+      if (!sock) {
+        logger.warn(
+          `[worker][${id}] Sem socket para company=${cid} — empresa nao conectada`
+        );
+        return;
+      }
+
+      logger.info(
+        `[worker][${id}][company=${cid}] Processando de ${from} (${channel || 'whatsapp'})`
+      );
+
+      // BUG-027 + BUG-028 corrigidos: passa companyId pro controller
+      await messageController.handleMessage(from, text, sock, {
+        rid: id,
+        companyId: cid,
+      });
     },
     {
       connection,
@@ -40,6 +69,7 @@ async function start() {
   worker.on('completed', (job) => {
     logger.info(`[worker] Job ${job.id} ok`);
   });
+
   worker.on('failed', (job, err) => {
     logger.error(`[worker] Job ${job && job.id} falhou: ${err.message}`);
   });

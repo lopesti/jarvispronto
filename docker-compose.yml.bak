@@ -41,60 +41,20 @@ services:
       NODE_ENV: production
       PORT: 3000
       TRUST_PROXY: "1"
-      # BUG-005 corrigido: secrets vêm do .env (nunca hardcoded)
-      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL must be set in .env}
+      DATABASE_URL: postgres://jarvis:jarvis_secret@postgres:5432/jarvispronto
       PGHOST: postgres
       PGPORT: 5432
-      PGUSER: ${POSTGRES_USER:-jarvis}
-      PGPASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env}
-      PGDATABASE: ${POSTGRES_DB:-jarvispronto}
-      # Fila/cache
-      REDIS_URL: redis://redis:6379
-      USE_MESSAGE_QUEUE: ${USE_MESSAGE_QUEUE:-0}
+      PGUSER: jarvis
+      PGPASSWORD: jarvis_secret
+      PGDATABASE: jarvispronto
     volumes:
       - jarvis_auth:/app/auth_info_jarvis
       - jarvis_logs:/app/logs
     depends_on:
       postgres:
         condition: service_healthy
-      redis:
-        condition: service_started
     networks:
       - jarvis-net
-
-  # Worker (modo fila — sobe com --profile full)
-  worker:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: jarvis-worker
-    restart: unless-stopped
-    command: ["node", "engine/workers/messageWorker.js"]
-    env_file:
-      - .env
-    environment:
-      NODE_ENV: production
-      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL must be set in .env}
-      PGHOST: postgres
-      PGPORT: 5432
-      PGUSER: ${POSTGRES_USER:-jarvis}
-      PGPASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env}
-      PGDATABASE: ${POSTGRES_DB:-jarvispronto}
-      REDIS_URL: redis://redis:6379
-      USE_MESSAGE_QUEUE: "1"
-      WORKER_CONCURRENCY: ${WORKER_CONCURRENCY:-5}
-    volumes:
-      - jarvis_auth:/app/auth_info_jarvis
-      - jarvis_logs:/app/logs
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_started
-    networks:
-      - jarvis-net
-    profiles:
-      - full
 
   frontend:
     build:
@@ -120,17 +80,15 @@ services:
     container_name: jarvis-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:-jarvis}
-      # BUG-005 corrigido: falha se não estiver no .env
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
-      POSTGRES_DB: ${POSTGRES_DB:-jarvispronto}
-    # BUG-006 corrigido: nao expor 5432 no host
-    expose:
-      - "5432"
+      POSTGRES_USER: jarvis
+      POSTGRES_PASSWORD: jarvis_secret
+      POSTGRES_DB: jarvispronto
+    ports:
+      - "5432:5432"
     volumes:
       - jarvis_pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-jarvis} -d ${POSTGRES_DB:-jarvispronto}"]
+      test: ["CMD-SHELL", "pg_isready -U jarvis -d jarvispronto"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -160,13 +118,14 @@ services:
     image: redis:7-alpine
     container_name: jarvis-redis
     restart: unless-stopped
-    # BUG-006 corrigido: nao expor 6379 no host
-    expose:
-      - "6379"
+    ports:
+      - "6379:6379"
     volumes:
       - jarvis_redis:/data
     networks:
       - jarvis-net
+    profiles:
+      - full
 
 volumes:
   jarvis_auth:
