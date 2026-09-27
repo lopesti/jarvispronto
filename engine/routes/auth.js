@@ -156,8 +156,10 @@ router.post('/logout', async (req, res) => {
 
 router.get('/me', authMiddleware, async (req, res) => {
   try {
+    // BUG-007 corrigido: SELECT agora inclui company_id
+    // sem isso, publicUser() retornava companyId: null mesmo com o banco tendo o valor
     const result = await query(
-      'SELECT id, name, email, role, created_at FROM users WHERE id = $1',
+      'SELECT id, name, email, role, company_id, created_at FROM users WHERE id = $1',
       [req.user.id]
     );
     if (result.rows.length === 0) {

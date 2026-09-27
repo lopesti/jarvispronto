@@ -1,46 +1,72 @@
-const fs = require('fs');
+﻿const fs = require('fs');
 const path = require('path');
-const EXTRACTED_DATA_FILE = path.resolve(__dirname, '../../data/group_insights.json');
+
+const BASE_DIR = path.resolve(__dirname, '../../data/group_insights');
 
 function ensureDir() {
-  const dir = path.dirname(EXTRACTED_DATA_FILE);
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  if (!fs.existsSync(BASE_DIR)) fs.mkdirSync(BASE_DIR, { recursive: true });
 }
 
-function loadInsights() {
+function filePathFor(companyId) {
+  const cid = Number(companyId) || 0;
+  return path.join(BASE_DIR, `company_${cid}.json`);
+}
+
+function loadInsights(companyId) {
   ensureDir();
-  if (!fs.existsSync(EXTRACTED_DATA_FILE)) return [];
-  try { return JSON.parse(fs.readFileSync(EXTRACTED_DATA_FILE, 'utf8')); } catch { return []; }
+  const file = filePathFor(companyId);
+  if (!fs.existsSync(file)) return [];
+  try {
+    return JSON.parse(fs.readFileSync(file, 'utf8'));
+  } catch {
+    return [];
+  }
 }
 
-function saveInsights(insights) { ensureDir(); fs.writeFileSync(EXTRACTED_DATA_FILE, JSON.stringify(insights, null, 2)); }
+function saveInsights(companyId, insights) {
+  ensureDir();
+  fs.writeFileSync(filePathFor(companyId), JSON.stringify(insights, null, 2));
+}
 
-function addInsight(groupName, message, sender, timestamp) {
-  const insights = loadInsights();
-  insights.push({ groupName, sender, message, timestamp: timestamp || new Date().toISOString(), type: 'extracted' });
+function addInsight(companyId, groupName, message, sender, timestamp) {
+  const cid = Number(companyId) || 0;
+  const insights = loadInsights(cid);
+  insights.push({
+    companyId: cid,
+    groupName,
+    sender,
+    message,
+    timestamp: timestamp || new Date().toISOString(),
+    type: 'extracted',
+  });
   if (insights.length > 1000) insights.shift();
-  saveInsights(insights);
+  saveInsights(cid, insights);
 }
 
 function extractKeywords(message) {
   const lower = message.toLowerCase();
   const keywords = {
-    preco: ['preço', 'valor', 'quanto custa', 'oferta', 'desconto'],
-    objeção: ['caro', 'golpe', 'confiança', 'duvida', 'pensar', 'depois'],
-    tecnica: ['fechar', 'argumento', 'persuasão', 'gatilho', 'escassez', 'urgência', 'prova social'],
-    produto: ['funciona', 'resultado', 'depoimento', 'garantia', 'entrega']
+    preco: ['preco', 'valor', 'quanto custa', 'oferta', 'desconto'],
+    objecao: ['caro', 'golpe', 'confianca', 'duvida', 'pensar', 'depois'],
+    tecnica: ['fechar', 'argumento', 'persuasao', 'gatilho', 'escassez', 'urgencia', 'prova social'],
+    produto: ['funciona', 'resultado', 'depoimento', 'garantia', 'entrega'],
   };
   const found = [];
   for (const [cat, words] of Object.entries(keywords)) {
-    if (words.some(w => lower.includes(w))) found.push(cat);
+    if (words.some((w) => lower.includes(w))) found.push(cat);
   }
   return found;
 }
 
-function processGroupMessage(groupName, sender, message) {
+function processGroupMessage(companyId, groupName, sender, message) {
+  if (!companyId || Number.isNaN(Number(companyId))) {
+    return;
+  }
   if (extractKeywords(message).length > 0) {
-    addInsight(groupName, message, sender, new Date().toISOString());
-    console.log(`[GROUP MONITOR] Insight de ${groupName}: ${message.substring(0, 80)}`);
+    addInsight(companyId, groupName, message, sender, new Date().toISOString());
+    console.log(
+      `[GROUP MONITOR][company=${companyId}] Insight de ${groupName}: ${message.substring(0, 80)}`
+    );
   }
 }
 

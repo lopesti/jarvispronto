@@ -172,7 +172,7 @@ async function connectCompany(companyId, onMessage) {
         if (isGroup) {
           try {
             const meta = await sock.groupMetadata(from);
-            processGroupMessage(meta.subject || from, msg.key.participant || from, text);
+            processGroupMessage(id, meta.subject || from, msg.key.participant || from, text);
           } catch (_) {}
           continue;
         }
