@@ -1,14 +1,23 @@
 /**
  * Conector Meta (Instagram DM + Facebook Messenger) — ESBOCO
  *
- * Para ativar em producao:
- * 1. Criar app em developers.facebook.com
- * 2. WhatsApp nao entra aqui — so IG/FB Messaging
- * 3. Configurar webhook: POST /api/channels/meta/webhook
- * 4. Env: META_VERIFY_TOKEN, META_PAGE_ACCESS_TOKEN, META_APP_SECRET
+ * ⚠️ DÉBITO TÉCNICO — BUG-019 + BUG-034 + BUG-050 + BUG-053
+ * ─────────────────────────────────────────────────────────
+ * Este serviço ainda NÃO é multi-tenant:
+ *   - `isConfigured()` lê process.env.META_* (token global)
+ *   - `verifyWebhook()` valida contra um único META_VERIFY_TOKEN
+ *   - `sendText()` usa o mesmo PAGE_ACCESS_TOKEN pra todos tenants
+ *   - `routes/channels.js` não mapeia page_id → company_id
  *
- * Fluxo alvo:
- *   Webhook Meta -> normalizeMessage -> messageController generico -> IA -> sendMetaMessage
+ * Para habilitar Meta em SaaS, precisa:
+ *   1. Migração: tabela `meta_channels (company_id, page_id, access_token, verify_token, app_secret)`
+ *   2. `isConfigured(companyId)` lê do DB
+ *   3. Webhook POST resolve `page_id → company_id` via DB
+ *   4. `sendText(companyId, externalId, text)` usa token do tenant
+ *   5. Frontend: campos de config por tenant em /settings
+ *
+ * Por enquanto, sem META_* no .env, o /status retorna pending_credentials
+ * e a UI esconde os cards. Nada quebra.
  */
 
 const logger = require('../utils/logger');
@@ -48,7 +57,6 @@ function normalizeIncoming(body) {
         if (!text) continue;
         const senderId = m.sender?.id;
         if (!senderId) continue;
-        // page subscriptions: object pode indicar instagram
         const channel =
           body.object === 'instagram' ? CHANNEL_INSTAGRAM : CHANNEL_FACEBOOK;
         out.push({

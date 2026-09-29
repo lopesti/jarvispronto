@@ -67,10 +67,12 @@ app.use((err, req, res, next) => {
 
 // ═══════════════════════════════════════════════════════════
 //  Rate limiting
+//  200/15min era baixo demais pro polling do dashboard.
+//  Producao: 3000/15min. Dev: 30000/15min.
 // ═══════════════════════════════════════════════════════════
 const apiLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
-    max: 200,
+    max: isProd ? 3000 : 30000,
     standardHeaders: true,
     legacyHeaders: false,
     message: { error: 'Muitas requisicoes, tente mais tarde' },
@@ -102,11 +104,8 @@ app.use('/api/whatsapp', require('./routes/whatsapp'));
 app.use('/internal', require('./routes/internal'));
 
 // ═══════════════════════════════════════════════════════════
-//  Health check
+//  Health check + Metrics (BUG-032: metricas por tenant)
 // ═══════════════════════════════════════════════════════════
-// =============================================================
-//  Metrics (BUG-032 - isolado por tenant)
-// =============================================================
 app.get('/metrics', (req, res) => {
     const { getMetrics } = require('./utils/metrics');
     const companyId = req.query.companyId ? Number(req.query.companyId) : null;

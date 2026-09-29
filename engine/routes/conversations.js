@@ -3,6 +3,7 @@ const router = express.Router();
 const ConversationController = require('../controllers/conversationController');
 
 router.get('/', ConversationController.list);
+router.get('/stats', ConversationController.stats);
 router.get('/pipeline/summary', ConversationController.pipeline);
 router.get('/:id', ConversationController.get);
 router.patch('/:id/step', ConversationController.updateStep);

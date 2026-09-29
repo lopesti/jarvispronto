@@ -2,14 +2,14 @@
 
 import { useEffect, useRef } from "react";
 import { Header } from "@/components/layout/header";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useApiMutation } from "@/lib/use-api-mutation";
 import {
   getConversations,
   updateStep,
   FUNNEL_STEPS,
   type Conversation,
 } from "@/lib/api";
-import { cn } from "@/lib/utils";
 
 function shortName(c: Conversation) {
   if (c.display_name) return c.display_name;
@@ -19,15 +19,14 @@ function shortName(c: Conversation) {
     .replace(/^facebook:/, "FB ");
 }
 
-/**
- * 1. REGRA AUTOMÁTICA DE SCORE:
- * Mapeie as faixas de score para os IDs de FUNNEL_STEPS da sua API
- */
 function getTargetStepByScore(score: number = 0): string {
-  if (score >= 80) return "fechamento"; // ex: Score 80+
-  if (score >= 50) return "proposta";   // ex: Score 50 a 79
-  if (score >= 30) return "qualificado"; // ex: Score 30 a 49
-  return "inicio";                       // ex: Score 0 a 29
+  if (score >= 100) return "vendido";
+  if (score >= 80) return "fechamento";
+  if (score >= 55) return "interesse";
+  if (score >= 45) return "objecao";
+  if (score >= 30) return "qualificacao";
+  if (score <= 0) return "perdido";
+  return "inicio";
 }
 
 export default function PipelinePage() {
@@ -36,45 +35,49 @@ export default function PipelinePage() {
   const { data: conversations = [], isLoading } = useQuery({
     queryKey: ["conversations"],
     queryFn: () => getConversations(),
-    refetchInterval: 5000, // Busca novidades a cada 5 segundos
+    refetchInterval: 5000,
   });
 
   const list = Array.isArray(conversations) ? conversations : [];
 
-  const moveMut = useMutation({
+  const moveMut = useApiMutation({
     mutationFn: ({ phone, step }: { phone: string; step: string }) =>
       updateStep(phone, step),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["conversations"] }),
   });
 
-  // Evita re-disparar atualizações simultâneas do mesmo telefone
   const pendingUpdates = useRef<Set<string>>(new Set());
+  const failedUpdates = useRef<Set<string>>(new Set());
 
-  // 2. VERIFICAÇÃO AUTOMÁTICA E TRANSIÇÃO DE ETAPA
   useEffect(() => {
     if (!list.length) return;
 
     list.forEach((lead) => {
       const targetStep = getTargetStepByScore(lead.lead_score);
       const currentStep = lead.current_step || "inicio";
+      const key = `${lead.phone}:${targetStep}`;
 
-      // Se a etapa atual for diferente da etapa calculada pelo score
-      if (currentStep !== targetStep && !pendingUpdates.current.has(lead.phone)) {
-        pendingUpdates.current.add(lead.phone);
+      if (failedUpdates.current.has(key)) return;
+      if (currentStep === targetStep) return;
+      if (pendingUpdates.current.has(lead.phone)) return;
 
-        moveMut.mutate(
-          { phone: lead.phone, step: targetStep },
-          {
-            onSettled: () => {
-              pendingUpdates.current.delete(lead.phone);
-            },
-          }
-        );
-      }
+      pendingUpdates.current.add(lead.phone);
+
+      moveMut.mutate(
+        { phone: lead.phone, step: targetStep },
+        {
+          onSuccess: () => {
+            pendingUpdates.current.delete(lead.phone);
+          },
+          onError: () => {
+            pendingUpdates.current.delete(lead.phone);
+            failedUpdates.current.add(key);
+          },
+        }
+      );
     });
   }, [list, moveMut]);
 
-  // Agrupa os leds por etapa já calculada
   const byStep = FUNNEL_STEPS.map((s) => ({
     ...s,
     items: list.filter((c) => (c.current_step || "inicio") === s.id),
@@ -83,8 +86,8 @@ export default function PipelinePage() {
   return (
     <>
       <Header
-        title="Pipeline Automático"
-        subtitle="Movimentação inteligente — as caixas mudam de coluna dinamicamente com base no score"
+        title="Pipeline Automatico"
+        subtitle="Movimentacao inteligente - as caixas mudam de coluna dinamicamente com base no score"
       />
       <div className="flex-1 overflow-x-auto p-6">
         {isLoading && (
@@ -94,7 +97,6 @@ export default function PipelinePage() {
         <div className="flex min-w-max gap-4">
           {byStep.map((col) => (
             <div key={col.id} className="w-64 shrink-0">
-              {/* Cabeçalho da Coluna */}
               <div className="mb-3 flex items-center justify-between">
                 <span className="text-sm font-medium">{col.label}</span>
                 <span className="rounded-full bg-secondary px-2 py-0.5 text-xs text-muted-foreground">
@@ -102,7 +104,6 @@ export default function PipelinePage() {
                 </span>
               </div>
 
-              {/* Lista de Cards */}
               <div className="min-h-[420px] space-y-2 rounded-xl border border-dashed border-border bg-muted/30 p-2">
                 {col.items.map((lead) => (
                   <div
@@ -119,13 +120,12 @@ export default function PipelinePage() {
                     </div>
 
                     <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
-                      {lead.lastMessage || "—"}
+                      {lead.lastMessage || "-"}
                     </p>
 
                     <div className="mt-3 flex items-center justify-between border-t border-border/50 pt-2">
-                      {/* Destaque visual do Score que rege a posição do card */}
                       <span className="inline-flex items-center gap-1 text-xs font-semibold text-primary">
-                        🔥 Score: {lead.lead_score ?? 0}
+                        Score: {lead.lead_score ?? 0}
                       </span>
                     </div>
                   </div>

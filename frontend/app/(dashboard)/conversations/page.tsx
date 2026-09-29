@@ -2,7 +2,8 @@
 
 import { Header } from "@/components/layout/header";
 import { useState, useEffect } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useApiMutation } from "@/lib/use-api-mutation";
 import {
   getConversations,
   getConversation,
@@ -76,7 +77,7 @@ export default function ConversationsPage() {
     qc.invalidateQueries({ queryKey: ["conversations"] });
   };
 
-  const sendMut = useMutation({
+  const sendMut = useApiMutation({
     mutationFn: async () => {
       if (!selectedPhone) return;
       return await sendMessage(selectedPhone, text);
@@ -85,27 +86,32 @@ export default function ConversationsPage() {
       setText("");
       invalidate();
     },
+    successMessage: "Mensagem enviada",
   });
 
-  const handoffMut = useMutation({
+  const handoffMut = useApiMutation({
     mutationFn: () => handoffConversation(selectedPhone!),
     onSuccess: invalidate,
+    successMessage: "Conversa transferida para humano",
   });
 
-  const claimMut = useMutation({
+  const claimMut = useApiMutation({
     mutationFn: () => claimConversation(selectedPhone!),
     onSuccess: invalidate,
+    successMessage: "Voce assumiu a conversa",
   });
 
-  const releaseMut = useMutation({
+  const releaseMut = useApiMutation({
     mutationFn: () => releaseToBot(selectedPhone!),
     onSuccess: invalidate,
+    successMessage: "Conversa devolvida ao bot",
   });
 
-  const modeMut = useMutation({
+  const modeMut = useApiMutation({
     mutationFn: (mode: "full" | "hybrid" | "human") =>
       setBotMode(selectedPhone!, mode),
     onSuccess: invalidate,
+    successMessage: "Modo do bot atualizado",
   });
 
   const messages = detail?.messages || [];
@@ -123,10 +129,9 @@ export default function ConversationsPage() {
     <>
       <Header
         title="Conversas"
-        subtitle="Inbox de vendas · funil + score + handoff"
+        subtitle="Inbox de vendas - funil + score + handoff"
       />
       <div className="flex flex-1 overflow-hidden">
-        {/* Lista */}
         <div className="flex w-80 flex-col border-r border-border">
           <div className="flex items-center gap-1 border-b border-border p-2">
             <Filter className="ml-1 h-3.5 w-3.5 text-muted-foreground" />
@@ -155,7 +160,6 @@ export default function ConversationsPage() {
               <p className="p-4 text-sm text-muted-foreground">Carregando...</p>
             )}
 
-            {/* Empty state estilo SaleSmartly */}
             {!isLoading && list.length === 0 && (
               <div className="flex flex-col items-center justify-center gap-3 px-6 py-16 text-center">
                 <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-secondary">
@@ -163,10 +167,10 @@ export default function ConversationsPage() {
                 </div>
                 <div>
                   <p className="text-sm font-medium text-foreground">
-                    Ainda não há sessão
+                    Ainda nao ha sessao
                   </p>
                   <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
-                    Após conectar o WhatsApp, as mensagens dos clientes entram
+                    Apos conectar o WhatsApp, as mensagens dos clientes entram
                     no funil de vendas automaticamente.
                   </p>
                 </div>
@@ -210,7 +214,7 @@ export default function ConversationsPage() {
                     )}
                   </div>
                   <p className="truncate text-xs text-muted-foreground">
-                    {chat.lastMessage || "—"}
+                    {chat.lastMessage || "-"}
                   </p>
                   <div className="mt-1 flex flex-wrap gap-1">
                     <span className="rounded bg-secondary px-1.5 py-0.5 text-[10px] text-muted-foreground">
@@ -226,7 +230,6 @@ export default function ConversationsPage() {
           </div>
         </div>
 
-        {/* Detalhe */}
         <div className="flex flex-1 flex-col">
           {selectedPhone && detail ? (
             <>
@@ -239,9 +242,9 @@ export default function ConversationsPage() {
                     {detail.display_name || displayPhone(selectedPhone)}
                   </p>
                   <p className="text-[11px] text-muted-foreground">
-                    {channelIcon(detail.channel)} · {stepLabel(step)} · score{" "}
+                    {channelIcon(detail.channel)} - {stepLabel(step)} - score{" "}
                     {score}
-                    {needsHuman ? " · aguardando humano" : ""}
+                    {needsHuman ? " - aguardando humano" : ""}
                   </p>
                 </div>
 
@@ -257,8 +260,8 @@ export default function ConversationsPage() {
                     title="Modo do bot"
                   >
                     <option value="full">Bot full</option>
-                    <option value="hybrid">Híbrido</option>
-                    <option value="human">Só humano</option>
+                    <option value="hybrid">Hibrido</option>
+                    <option value="human">So humano</option>
                   </select>
 
                   {!needsHuman ? (
@@ -358,7 +361,7 @@ export default function ConversationsPage() {
               <MessageSquare className="h-10 w-10 text-muted-foreground/40" />
               <p className="text-sm text-muted-foreground">
                 {list.length === 0
-                  ? "Conecte um canal para começar a vender"
+                  ? "Conecte um canal para comecar a vender"
                   : "Selecione uma conversa"}
               </p>
             </div>

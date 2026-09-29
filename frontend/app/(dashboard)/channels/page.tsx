@@ -1,7 +1,8 @@
 "use client";
 
 import { Header } from "@/components/layout/header";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useApiMutation } from "@/lib/use-api-mutation";
 import { useState } from "react";
 import {
   getChannelStatus,
@@ -45,7 +46,6 @@ function StatusDot({ ch }: { ch?: ChannelStatus }) {
   );
 }
 
-/** Modal de QR Code para conectar WhatsApp */
 function WhatsQrModal({ onClose }: { onClose: () => void }) {
   const qc = useQueryClient();
 
@@ -62,14 +62,16 @@ function WhatsQrModal({ onClose }: { onClose: () => void }) {
     refetchInterval: 25000,
   });
 
-  const connectMut = useMutation({
+  const connectMut = useApiMutation({
     mutationFn: connectWhatsApp,
     onSuccess: () => qc.invalidateQueries({ queryKey: ["whatsapp-status"] }),
+    successMessage: "Conexao iniciada, aguarde o QR",
   });
 
-  const disconnectMut = useMutation({
+  const disconnectMut = useApiMutation({
     mutationFn: () => disconnectWhatsApp(false),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["whatsapp-status"] }),
+    successMessage: "WhatsApp desconectado",
   });
 
   return (
@@ -105,7 +107,7 @@ function WhatsQrModal({ onClose }: { onClose: () => void }) {
           <div className="space-y-4 text-center">
             <Radio className="mx-auto h-12 w-12 text-muted-foreground" />
             <p className="text-sm text-muted-foreground">
-              Clique abaixo para iniciar uma sessão e gerar o QR Code.
+              Clique abaixo para iniciar uma sessao e gerar o QR Code.
             </p>
             <button
               onClick={() => connectMut.mutate()}
@@ -117,7 +119,7 @@ function WhatsQrModal({ onClose }: { onClose: () => void }) {
               ) : (
                 <RefreshCw className="h-3.5 w-3.5" />
               )}
-              Iniciar conexão
+              Iniciar conexao
             </button>
           </div>
         ) : qrData?.qrImage ? (
@@ -126,8 +128,8 @@ function WhatsQrModal({ onClose }: { onClose: () => void }) {
               <img src={qrData.qrImage} alt="QR Code" className="h-64 w-64" />
             </div>
             <p className="text-xs text-muted-foreground">
-              Abra o WhatsApp no celular → Aparelhos conectados → Conectar
-              aparelho → Aponte para o QR
+              Abra o WhatsApp no celular - Aparelhos conectados - Conectar
+              aparelho - Aponte para o QR
             </p>
             <p className="text-[11px] text-muted-foreground">
               O QR atualiza automaticamente a cada 25s.
@@ -175,7 +177,7 @@ function ChannelCard({
       <div className="flex items-start justify-between gap-2">
         <div>
           <h3 className="font-semibold capitalize">{label}</h3>
-          <p className="mt-1 text-xs text-muted-foreground">{ch?.note || "—"}</p>
+          <p className="mt-1 text-xs text-muted-foreground">{ch?.note || "-"}</p>
         </div>
         <StatusDot ch={ch} />
       </div>
@@ -183,7 +185,7 @@ function ChannelCard({
       <p className="mt-3 text-[11px] uppercase tracking-wide text-muted-foreground">
         Status:{" "}
         <span className="text-foreground normal-case">
-          {ch?.status || "—"}
+          {ch?.status || "-"}
         </span>
       </p>
 
@@ -194,7 +196,7 @@ function ChannelCard({
             onClick={onConnectWhatsApp}
             className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90"
           >
-            {connected ? "Gerenciar sessão" : "Conectar WhatsApp"}
+            {connected ? "Gerenciar sessao" : "Conectar WhatsApp"}
           </button>
           {!connected && (
             <span className="inline-flex items-center gap-1 text-[11px] text-amber-200/90">
@@ -210,8 +212,8 @@ function ChannelCard({
       )}
 
       {(id === "instagram" || id === "facebook") && !ch?.enabled && (
-        <p className="mt-3 text-[11px] text-muted-foreground">
-          2º canal do TCC — configure META_* no .env
+        <p className="mt-3 text-[11px] text-muted-foreground italic">
+          Nao disponivel nesta versao.
         </p>
       )}
     </div>
@@ -234,7 +236,7 @@ export default function ChannelsPage() {
     <>
       <Header
         title="Canais"
-        subtitle="WhatsApp ativo · Instagram/Messenger preparados · demais no roadmap"
+        subtitle="WhatsApp ativo - Instagram/Messenger no roadmap - demais em breve"
       />
       <div className="flex-1 overflow-y-auto p-6">
         {!waOk && !isLoading && (
@@ -244,10 +246,10 @@ export default function ChannelsPage() {
             </div>
             <div className="flex-1">
               <p className="text-sm font-medium">
-                Conecte-se a um canal para que as mensagens apareçam no inbox
+                Conecte-se a um canal para que as mensagens aparecam no inbox
               </p>
               <p className="mt-1 text-xs text-muted-foreground">
-                O QR Code é gerado dentro do painel. Clique em "Conectar
+                O QR Code e gerado dentro do painel. Clique em "Conectar
                 WhatsApp", escaneie com o celular e pronto.
               </p>
             </div>
@@ -268,17 +270,23 @@ export default function ChannelsPage() {
           Canais do TCC
         </p>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {PRIMARY.map((key) => (
-            <ChannelCard
-              key={key}
-              id={key}
-              ch={data?.[key]}
-              primary
-              onConnectWhatsApp={
-                key === "whatsapp" ? () => setShowQrModal(true) : undefined
-              }
-            />
-          ))}
+          {PRIMARY
+            .filter((key) => {
+              // BUG-053: so mostra Meta se o backend confirmar que esta configurado
+              if (key === "whatsapp") return true;
+              return data?.[key]?.enabled === true;
+            })
+            .map((key) => (
+              <ChannelCard
+                key={key}
+                id={key}
+                ch={data?.[key]}
+                primary
+                onConnectWhatsApp={
+                  key === "whatsapp" ? () => setShowQrModal(true) : undefined
+                }
+              />
+            ))}
         </div>
 
         <p className="mb-3 mt-8 text-xs font-medium uppercase tracking-wider text-muted-foreground">
@@ -292,16 +300,12 @@ export default function ChannelsPage() {
 
         <div className="mt-8 rounded-xl border border-border bg-card p-6 text-sm text-muted-foreground">
           <p className="font-medium text-foreground">
-            Ativar Instagram / Messenger (2º canal)
+            Instagram / Messenger
           </p>
-          <ol className="mt-2 list-decimal space-y-1 pl-5 text-xs">
-            <li>Crie um app em developers.facebook.com</li>
-            <li>Defina no .env: META_VERIFY_TOKEN, META_PAGE_ACCESS_TOKEN</li>
-            <li>
-              Webhook: GET/POST https://seu-dominio/api/channels/meta/webhook
-            </li>
-            <li>Reinicie a API — o mesmo funil/score/handoff vale nos dois canais</li>
-          </ol>
+          <p className="mt-2 text-xs">
+            Disponibilidade prevista para uma proxima versao. Quando liberado,
+            o mesmo funil/score/handoff valera nos dois canais.
+          </p>
         </div>
       </div>
 

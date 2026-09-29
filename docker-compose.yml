@@ -51,6 +51,8 @@ services:
       # Fila/cache
       REDIS_URL: redis://redis:6379
       USE_MESSAGE_QUEUE: ${USE_MESSAGE_QUEUE:-0}
+      # BUG-072: em mode=queue a API delega comandos de WA pro worker
+      WORKER_INTERNAL_URL: http://worker:3002
     volumes:
       - jarvis_auth:/app/auth_info_jarvis
       - jarvis_logs:/app/logs
@@ -83,6 +85,10 @@ services:
       REDIS_URL: redis://redis:6379
       USE_MESSAGE_QUEUE: "1"
       WORKER_CONCURRENCY: ${WORKER_CONCURRENCY:-5}
+      # BUG-072: mini servidor HTTP interno pro API delegar comandos de WA
+      WORKER_HTTP_PORT: "3002"
+    expose:
+      - "3002"
     volumes:
       - jarvis_auth:/app/auth_info_jarvis
       - jarvis_logs:/app/logs

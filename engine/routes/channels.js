@@ -1,3 +1,12 @@
+/**
+ * Rotas de status/gestão de canais.
+ *
+ * BUG-050 + BUG-020: o endpoint `/status` retorna o estado de TODOS os canais
+ * de uma vez (WhatsApp real, Meta via env global, roadmap fake). Não existe
+ * `getConnectionStatus` — a UI nunca precisou de um endpoint por canal único.
+ * Se um dia precisar, implementar como GET /api/channels/:channel/status.
+ */
+
 const express = require('express');
 const router = express.Router();
 const logger = require('../utils/logger');

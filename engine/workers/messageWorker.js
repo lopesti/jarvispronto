@@ -1,8 +1,10 @@
 /**
- * Worker separado — único dono do socket WA quando USE_MESSAGE_QUEUE=1
+ * Worker separado — unico dono do socket WA quando USE_MESSAGE_QUEUE=1
  *
  * BUG-027 corrigido: processa multiplos tenants, nao so empresa 1.
  * BUG-028 corrigido: le companyId do job e passa pra tudo.
+ * BUG-033 corrigido: valida Redis no boot com PING + timeout de 5s.
+ * BUG-072 corrigido: sobe mini HTTP interno pro API delegar WhatsApp.
  */
 require('dotenv').config({
   path: require('path').resolve(__dirname, '../../.env'),
@@ -14,6 +16,22 @@ async function start() {
   const connection = getConnection();
   if (!connection) {
     logger.error('[worker] Redis obrigatorio. Defina REDIS_URL.');
+    process.exit(1);
+  }
+
+  // BUG-033: valida que o Redis responde ANTES de subir o worker.
+  // `new IORedis()` nao lanca erro sincronamente — sem isso, o worker
+  // sobe mesmo com Redis fora, e so descobre quando chega um job.
+  try {
+    await Promise.race([
+      connection.ping(),
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Redis PING timeout (5s)')), 5000)
+      ),
+    ]);
+    logger.info('[worker] Redis OK (ping respondeu)');
+  } catch (err) {
+    logger.error(`[worker] Redis inacessivel no boot: ${err.message}`);
     process.exit(1);
   }
 
@@ -62,8 +80,14 @@ async function start() {
     },
     {
       connection,
-      concurrency: Number(process.env.WORKER_CONCURRENCY || 5),
+      concurrency: Number(process.env.WORKER_CONCURRENCY) || 5,
     }
+  );
+
+  // BUG-072: sobe o mini servidor HTTP interno pro API delegar comandos de WhatsApp
+  const { startWorkerHttp } = require('./workerHttp');
+  startWorkerHttp().catch((err) =>
+    logger.error('[worker] Falha ao subir workerHttp: ' + err.message)
   );
 
   worker.on('completed', (job) => {
@@ -71,13 +95,19 @@ async function start() {
   });
 
   worker.on('failed', (job, err) => {
-    logger.error(`[worker] Job ${job && job.id} falhou: ${err.message}`);
+    logger.error(
+      `[worker] Job ${job?.id} falhou: ${err?.message || 'erro desconhecido'}`
+    );
+  });
+
+  worker.on('error', (err) => {
+    logger.error(`[worker] Erro no worker: ${err.message}`);
   });
 
   logger.info('[worker] Message worker iniciado');
 }
 
-start().catch((e) => {
-  logger.error('[worker] Fatal: ' + e.message);
+start().catch((err) => {
+  logger.error('[worker] Falha fatal no boot: ' + err.message);
   process.exit(1);
 });

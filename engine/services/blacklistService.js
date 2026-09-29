@@ -1,24 +1,66 @@
 const path = require('path');
 const fs = require('fs');
 
-const BLACKLIST_FILE = path.resolve(__dirname, '../../data/blacklist.json');
+function _fileFor(companyId) {
+  const cid = Number(companyId);
+  if (!cid || Number.isNaN(cid)) {
+    throw new Error('blacklistService: companyId obrigatorio');
+  }
+  return path.resolve(__dirname, `../../data/blacklist/company_${cid}.json`);
+}
 
-function ensureDir() {
-  const dir = path.dirname(BLACKLIST_FILE);
+function _ensureDir(file) {
+  const dir = path.dirname(file);
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 }
 
-function loadBlacklist() {
-  ensureDir();
-  if (!fs.existsSync(BLACKLIST_FILE)) return [];
-  try { return JSON.parse(fs.readFileSync(BLACKLIST_FILE, 'utf8')); } catch { return []; }
+function _load(companyId) {
+  const file = _fileFor(companyId);
+  _ensureDir(file);
+  if (!fs.existsSync(file)) return [];
+  try {
+    return JSON.parse(fs.readFileSync(file, 'utf8'));
+  } catch {
+    return [];
+  }
 }
 
-function saveBlacklist(list) { ensureDir(); fs.writeFileSync(BLACKLIST_FILE, JSON.stringify(list, null, 2)); }
+function _save(companyId, list) {
+  const file = _fileFor(companyId);
+  _ensureDir(file);
+  fs.writeFileSync(file, JSON.stringify(list, null, 2));
+}
 
-function isBlocked(phone) { return loadBlacklist().includes(phone); }
-function addToBlacklist(phone) { const list = loadBlacklist(); if (!list.includes(phone)) { list.push(phone); saveBlacklist(list); return true; } return false; }
-function removeFromBlacklist(phone) { let list = loadBlacklist(); if (list.includes(phone)) { list = list.filter(p => p !== phone); saveBlacklist(list); return true; } return false; }
-function getAllBlacklist() { return loadBlacklist(); }
+function isBlocked(companyId, phone) {
+  return _load(companyId).includes(phone);
+}
 
-module.exports = { isBlocked, addToBlacklist, removeFromBlacklist, getAllBlacklist };
+function addToBlacklist(companyId, phone) {
+  const list = _load(companyId);
+  if (!list.includes(phone)) {
+    list.push(phone);
+    _save(companyId, list);
+    return true;
+  }
+  return false;
+}
+
+function removeFromBlacklist(companyId, phone) {
+  const list = _load(companyId);
+  if (list.includes(phone)) {
+    _save(companyId, list.filter((p) => p !== phone));
+    return true;
+  }
+  return false;
+}
+
+function getAllBlacklist(companyId) {
+  return _load(companyId);
+}
+
+module.exports = {
+  isBlocked,
+  addToBlacklist,
+  removeFromBlacklist,
+  getAllBlacklist,
+};

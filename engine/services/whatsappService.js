@@ -49,11 +49,6 @@ function nextDelayMs(attempt) {
   return exp + jitter;
 }
 
-/**
- * Conecta (ou reconecta) WhatsApp da empresa.
- * @param {number} companyId
- * @param {function} onMessage (from, text, sock, companyId) => void
- */
 async function connectCompany(companyId, onMessage) {
   const id = Number(companyId);
   if (!id || Number.isNaN(id)) {
@@ -90,7 +85,6 @@ async function connectCompany(companyId, onMessage) {
     if (qr) {
       session.qr = qr;
       session.state = 'qr';
-      // legado: so espelha se for a unica sessao em QR
       global.currentQR = qr;
       global.currentQRCompanyId = id;
       logger.info(`[WA][company=${id}] QR atualizado. GET /api/whatsapp/qr`);
@@ -125,7 +119,6 @@ async function connectCompany(companyId, onMessage) {
       if (loggedOut) {
         session.sock = null;
         session.qr = null;
-        // limpa credenciais para forcar novo QR
         try {
           for (const f of fs.readdirSync(authDir)) {
             fs.unlinkSync(path.join(authDir, f));
@@ -177,7 +170,7 @@ async function connectCompany(companyId, onMessage) {
           continue;
         }
 
-        if (isBlocked(from)) {
+        if (isBlocked(id, from)) {
           logger.info(`[WA][company=${id}] Bloqueado: ${from}`);
           continue;
         }
@@ -238,7 +231,6 @@ async function disconnectCompany(companyId, clearAuth = false) {
   return true;
 }
 
-/** Compat: connect sem company usa empresa 1 (legado) */
 async function connect(onMessage) {
   return connectCompany(1, (from, text, sock) => onMessage(from, text, sock));
 }

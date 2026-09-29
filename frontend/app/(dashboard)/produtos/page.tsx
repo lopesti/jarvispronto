@@ -2,7 +2,8 @@
 
 import { Header } from "@/components/layout/header";
 import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useApiMutation } from "@/lib/use-api-mutation";
 import {
   getProdutos,
   createProduto,
@@ -26,7 +27,7 @@ export default function ProdutosPage() {
 
   const list = Array.isArray(produtos) ? produtos : [];
 
-  const saveMut = useMutation({
+  const saveMut = useApiMutation({
     mutationFn: async () => {
       const payload = {
         nome: form.nome.trim(),
@@ -46,12 +47,16 @@ export default function ProdutosPage() {
       setError("");
       qc.invalidateQueries({ queryKey: ["produtos"] });
     },
-    onError: (e: Error) => setError(e.message || "Erro ao salvar"),
+    onError: (e: any) => {
+      setError(e?.message || "Erro ao salvar");
+    },
+    successMessage: "Produto salvo",
   });
 
-  const delMut = useMutation({
+  const delMut = useApiMutation({
     mutationFn: (id: number) => deleteProduto(id),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["produtos"] }),
+    successMessage: "Produto excluido",
   });
 
   function startEdit(p: Produto) {
@@ -75,7 +80,7 @@ export default function ProdutosPage() {
     <>
       <Header
         title="Produtos"
-        subtitle="CRUD completo — Criar, Consultar, Atualizar e Excluir"
+        subtitle="CRUD completo - Criar, Consultar, Atualizar e Excluir"
       />
       <div className="flex-1 overflow-y-auto p-6 space-y-6">
         <div className="rounded-xl border border-border bg-card p-6">
@@ -94,7 +99,7 @@ export default function ProdutosPage() {
                 className="w-full rounded-lg border border-border bg-secondary/50 px-3 py-2 text-sm"
                 value={form.nome}
                 onChange={(e) => setForm({ ...form, nome: e.target.value })}
-                placeholder="Ex: Escova Alisadora 3 em 1 — Kit 1"
+                placeholder="Ex: Escova Alisadora 3 em 1 - Kit 1"
               />
             </div>
             <div className="sm:col-span-2">

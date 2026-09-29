@@ -1,6 +1,6 @@
 const { pool } = require('../models/database');
 const logger = require('../utils/logger');
-const { STEPS, scoreForStep } = require('../utils/funnel');
+const { STEPS, scoreForStep, getFunnelRules } = require('../utils/funnel');
 
 class ConversationController {
   static async list(req, res) {
@@ -11,6 +11,10 @@ class ConversationController {
       if (!companyId) {
         return res.status(403).json({ error: 'Sem empresa vinculada', code: 'NO_COMPANY' });
       }
+
+      // BUG-043: aceita ?limit=N para reduzir payload em telas que so querem "ultimas X"
+      const rawLimit = Number(req.query.limit);
+      const limit = Number.isFinite(rawLimit) && rawLimit > 0 ? Math.min(rawLimit, 500) : null;
 
       let sql = `
         SELECT
@@ -60,11 +64,56 @@ class ConversationController {
       }
 
       sql += ` ORDER BY c.needs_human DESC, c.updated_at DESC`;
+      if (limit) {
+        params.push(limit);
+        sql += ` LIMIT $${p++}`;
+      }
+
       const result = await pool.query(sql, params);
       res.json(result.rows);
     } catch (error) {
       logger.error('Erro ao listar conversas:', error.message);
       res.status(500).json({ message: 'Erro ao listar conversas' });
+    }
+  }
+
+  /**
+   * BUG-043: agregados do dashboard em 1 query só.
+   * Antes, o /overview baixava TODAS as conversas e fazia reduce/filter no browser.
+   */
+  static async stats(req, res) {
+    try {
+      const companyId = req.user?.companyId;
+      if (!companyId) {
+        return res.status(403).json({ error: 'Sem empresa vinculada', code: 'NO_COMPANY' });
+      }
+
+      const { rows } = await pool.query(
+        `SELECT
+           COUNT(*)::int                                              AS total_conversations,
+           COUNT(*) FILTER (WHERE needs_human = TRUE)::int            AS needs_human,
+           COALESCE(ROUND(AVG(lead_score))::int, 0)                   AS avg_score,
+           COALESCE(SUM((
+             SELECT COUNT(*) FROM messages m
+             WHERE m.phone = c.phone
+               AND m.company_id = c.company_id
+               AND m.role = 'user'
+           )), 0)::int                                                AS total_messages
+         FROM conversations c
+         WHERE c.company_id = $1`,
+        [companyId]
+      );
+
+      const r = rows[0] || {};
+      res.json({
+        totalConversations: r.total_conversations ?? 0,
+        needsHuman: r.needs_human ?? 0,
+        avgScore: r.avg_score ?? 0,
+        totalMessages: r.total_messages ?? 0,
+      });
+    } catch (error) {
+      logger.error('Erro ao calcular stats:', error.message);
+      res.status(500).json({ message: 'Erro ao calcular stats' });
     }
   }
 
@@ -108,7 +157,8 @@ class ConversationController {
           allowed: STEPS,
         });
       }
-      const score = scoreForStep(step);
+      const funnelRules = await getFunnelRules(companyId);
+      const score = scoreForStep(step, funnelRules);
       const result = await pool.query(
         `UPDATE conversations
          SET current_step = $1, lead_score = $2, updated_at = NOW()
@@ -283,7 +333,6 @@ class ConversationController {
         return res.status(400).json({ message: 'Mensagem e obrigatoria' });
       }
 
-      // Upsert da conversa garantindo tenant
       await pool.query(
         `INSERT INTO conversations (phone, channel, company_id, updated_at)
          VALUES ($1, 'whatsapp', $2, NOW())
@@ -297,7 +346,6 @@ class ConversationController {
         [id, message, companyId]
       );
 
-      // Mensagem humana: marca needs_human e atribui se logado
       if (userId) {
         await pool.query(
           `UPDATE conversations

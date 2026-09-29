@@ -1,5 +1,5 @@
 const logger = require('../utils/logger');
-const { classifyStep, scoreForStep } = require('../utils/funnel');
+const { classifyStep, scoreForStep, getFunnelRules } = require('../utils/funnel');
 const conversationRepo = require('../repositories/conversationRepository');
 const messageRepo = require('../repositories/messageRepository');
 
@@ -43,8 +43,11 @@ async function handleMessage(from, text, sock, opts = {}) {
     const prevStep = existing?.current_step || 'inicio';
     const botMode = existing?.bot_mode || 'full';
     let needsHuman = existing?.needs_human === true;
-    const nextStep = classifyStep(body, prevStep);
-    const score = scoreForStep(nextStep);
+
+    // BUG-031: regras de classificacao/score por tenant (fallback global)
+    const funnelRules = await getFunnelRules(companyId);
+    const nextStep = classifyStep(body, prevStep, funnelRules);
+    const score = scoreForStep(nextStep, funnelRules);
 
     await conversationRepo.upsertStep({
       phone,
@@ -113,10 +116,10 @@ async function handleMessage(from, text, sock, opts = {}) {
 
     if (sock) {
       await sock.sendMessage(phone, { text: String(responseText) });
-    try {
-      const { inc } = require('../utils/metrics');
-      inc('messages_sent_total', companyId);
-    } catch (_) {}
+      try {
+        const { inc } = require('../utils/metrics');
+        inc('messages_sent_total', companyId);
+      } catch (_) {}
     }
 
     await messageRepo.insert({

@@ -3,6 +3,7 @@ const router = express.Router();
 const db = require('../models/database');
 const logger = require('../utils/logger');
 const { invalidateSystemPromptCache } = require('../services/geminiService');
+const { invalidateFunnelCache } = require('../utils/funnel');
 
 // O authMiddleware eh aplicado no app.js (igual as outras rotas /api/*)
 
@@ -39,7 +40,15 @@ router.get('/:id/config', async (req, res) => {
 
 /**
  * PUT /api/companies/:id/config
- * Body: { systemPrompt?, fallbackMessage? }
+ *
+ * Aceita qualquer chave JSON:
+ *   - systemPrompt     (string) — prompt do bot (BUG-009)
+ *   - fallbackMessage  (string) — fallback de IA (BUG-009)
+ *   - funnelRules      (object) — regras do funil por tenant (BUG-031)
+ *   - adminPhone       (string) — telefone admin (futuro BUG-035)
+ *   - e o que mais vier no config JSONB
+ *
+ * BUG-071: antes era allowlist hardcoded e rejeitava campos novos.
  */
 router.put('/:id/config', async (req, res) => {
   try {
@@ -51,14 +60,25 @@ router.put('/:id/config', async (req, res) => {
       return res.status(403).json({ error: 'Acesso negado a outro tenant' });
     }
 
-    const { systemPrompt, fallbackMessage } = req.body || {};
+    const body = req.body || {};
     const patch = {};
-    if (typeof systemPrompt === 'string' && systemPrompt.trim()) {
-      patch.systemPrompt = systemPrompt.trim();
+
+    // Campos texto: normaliza (trim) e ignora vazios
+    if (typeof body.systemPrompt === 'string' && body.systemPrompt.trim()) {
+      patch.systemPrompt = body.systemPrompt.trim();
     }
-    if (typeof fallbackMessage === 'string' && fallbackMessage.trim()) {
-      patch.fallbackMessage = fallbackMessage.trim();
+    if (typeof body.fallbackMessage === 'string' && body.fallbackMessage.trim()) {
+      patch.fallbackMessage = body.fallbackMessage.trim();
     }
+
+    // BUG-071: aceita qualquer chave JSON extra (funnelRules, adminPhone, etc.)
+    const RESERVED = new Set(['systemPrompt', 'fallbackMessage']);
+    for (const [k, v] of Object.entries(body)) {
+      if (RESERVED.has(k)) continue;
+      if (v === undefined) continue;
+      patch[k] = v;
+    }
+
     if (Object.keys(patch).length === 0) {
       return res.status(400).json({ error: 'Nada para atualizar' });
     }
@@ -73,6 +93,7 @@ router.put('/:id/config', async (req, res) => {
     if (!rows[0]) return res.status(404).json({ error: 'Empresa nao encontrada' });
 
     invalidateSystemPromptCache(id);
+    invalidateFunnelCache(id);
     logger.info(
       `[companies] config atualizada company=${id} user=${req.user.id} chaves=${Object.keys(patch).join(',')}`
     );
