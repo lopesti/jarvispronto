@@ -1,375 +1,105 @@
 "use client";
 
-import { Header } from "@/components/layout/header";
-import { useState, useEffect } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useApiMutation } from "@/lib/use-api-mutation";
-import {
-  getConversations,
-  getConversation,
-  sendMessage,
-  handoffConversation,
-  claimConversation,
-  releaseToBot,
-  setBotMode,
-  stepLabel,
-  type Conversation,
-} from "@/lib/api";
-import { cn } from "@/lib/utils";
-import {
-  MessageSquare,
-  Radio,
-  UserRound,
-  Bot,
-  HandMetal,
-  Filter,
-} from "lucide-react";
 import Link from "next/link";
+import { Bot, MessageSquare, GitBranch, Zap, Shield, ArrowRight } from "lucide-react";
 
-type ListFilter = "all" | "needs_human" | "mine";
-
-function displayPhone(phone: string) {
-  return phone
-    .replace("@s.whatsapp.net", "")
-    .replace("@lid", "")
-    .replace(/^(instagram|facebook):/, "");
-}
-
-function channelIcon(channel?: string) {
-  const ch = (channel || "whatsapp").toLowerCase();
-  if (ch.includes("instagram")) return "IG";
-  if (ch.includes("facebook") || ch.includes("messenger")) return "FB";
-  return "WA";
-}
-
-export default function ConversationsPage() {
-  const [selectedPhone, setSelectedPhone] = useState<string | null>(null);
-  const [text, setText] = useState("");
-  const [filter, setFilter] = useState<ListFilter>("all");
-  const qc = useQueryClient();
-
-  const { data: chats = [], isLoading } = useQuery({
-    queryKey: ["conversations", filter],
-    queryFn: () => getConversations({ filter }),
-    refetchInterval: 8000,
-  });
-
-  const list = Array.isArray(chats) ? chats : [];
-
-  useEffect(() => {
-    if (!selectedPhone && list.length > 0) {
-      setSelectedPhone(list[0].phone);
-    }
-  }, [list, selectedPhone]);
-
-  const { data: detail, isLoading: loadingDetail } = useQuery({
-    queryKey: ["conversation", selectedPhone],
-    queryFn: async () => {
-      if (!selectedPhone) return null;
-      return await getConversation(selectedPhone);
-    },
-    enabled: !!selectedPhone,
-    refetchInterval: 5000,
-  });
-
-  const invalidate = () => {
-    qc.invalidateQueries({ queryKey: ["conversation", selectedPhone] });
-    qc.invalidateQueries({ queryKey: ["conversations"] });
-  };
-
-  const sendMut = useApiMutation({
-    mutationFn: async () => {
-      if (!selectedPhone) return;
-      return await sendMessage(selectedPhone, text);
-    },
-    onSuccess: () => {
-      setText("");
-      invalidate();
-    },
-    successMessage: "Mensagem enviada",
-  });
-
-  const handoffMut = useApiMutation({
-    mutationFn: () => handoffConversation(selectedPhone!),
-    onSuccess: invalidate,
-    successMessage: "Conversa transferida para humano",
-  });
-
-  const claimMut = useApiMutation({
-    mutationFn: () => claimConversation(selectedPhone!),
-    onSuccess: invalidate,
-    successMessage: "Voce assumiu a conversa",
-  });
-
-  const releaseMut = useApiMutation({
-    mutationFn: () => releaseToBot(selectedPhone!),
-    onSuccess: invalidate,
-    successMessage: "Conversa devolvida ao bot",
-  });
-
-  const modeMut = useApiMutation({
-    mutationFn: (mode: "full" | "hybrid" | "human") =>
-      setBotMode(selectedPhone!, mode),
-    onSuccess: invalidate,
-    successMessage: "Modo do bot atualizado",
-  });
-
-  const messages = detail?.messages || [];
-  const needsHuman = !!(detail?.needs_human ?? false);
-  const step = detail?.current_step || "inicio";
-  const score = Number(detail?.lead_score ?? 0);
-
-  const filters: { id: ListFilter; label: string }[] = [
-    { id: "all", label: "Todas" },
-    { id: "needs_human", label: "Precisa humano" },
-    { id: "mine", label: "Minhas" },
-  ];
-
+export default function LandingPage() {
   return (
-    <>
-      <Header
-        title="Conversas"
-        subtitle="Inbox de vendas · funil + score + handoff"
-      />
-      <div className="flex flex-1 overflow-hidden">
-        {/* Lista */}
-        <div className="flex w-80 flex-col border-r border-border">
-          <div className="flex items-center gap-1 border-b border-border p-2">
-            <Filter className="ml-1 h-3.5 w-3.5 text-muted-foreground" />
-            {filters.map((f) => (
-              <button
-                key={f.id}
-                type="button"
-                onClick={() => {
-                  setFilter(f.id);
-                  setSelectedPhone(null);
-                }}
-                className={cn(
-                  "rounded-md px-2.5 py-1 text-[11px] font-medium transition-colors",
-                  filter === f.id
-                    ? "bg-primary/20 text-primary"
-                    : "text-muted-foreground hover:bg-secondary"
-                )}
-              >
-                {f.label}
-              </button>
-            ))}
+    <div className="min-h-screen bg-background text-foreground">
+      <header className="border-b border-border">
+        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
+          <div className="flex items-center gap-2">
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/20">
+              <Bot className="h-5 w-5 text-primary" />
+            </div>
+            <span className="font-bold tracking-tight">JARVIS Comercial</span>
           </div>
-
-          <div className="flex-1 overflow-y-auto">
-            {isLoading && (
-              <p className="p-4 text-sm text-muted-foreground">Carregando...</p>
-            )}
-
-            {!isLoading && list.length === 0 && (
-              <div className="flex flex-col items-center justify-center gap-3 px-6 py-16 text-center">
-                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-secondary">
-                  <MessageSquare className="h-7 w-7 text-muted-foreground" />
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-foreground">
-                    Ainda não há sessão
-                  </p>
-                  <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
-                    Após conectar o WhatsApp, as mensagens dos clientes entram
-                    no funil de vendas automaticamente.
-                  </p>
-                </div>
-                <Link
-                  href="/channels"
-                  className="mt-2 inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-xs font-medium text-primary-foreground hover:bg-primary/90"
-                >
-                  <Radio className="h-3.5 w-3.5" />
-                  Conectar canal
-                </Link>
-              </div>
-            )}
-
-            {list.map((chat: Conversation) => (
-              <button
-                key={chat.phone}
-                type="button"
-                onClick={() => setSelectedPhone(chat.phone)}
-                className={cn(
-                  "flex w-full items-start gap-3 border-b border-border px-4 py-3 text-left transition-colors hover:bg-secondary/50",
-                  selectedPhone === chat.phone && "bg-primary/10"
-                )}
-              >
-                <div className="relative">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/20 text-xs font-bold text-primary">
-                    {displayPhone(chat.phone).slice(-2)}
-                  </div>
-                  <span className="absolute -bottom-0.5 -right-0.5 rounded bg-card px-0.5 text-[8px] font-bold text-muted-foreground border border-border">
-                    {channelIcon(chat.channel)}
-                  </span>
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center justify-between gap-1">
-                    <span className="truncate text-sm font-medium">
-                      {chat.display_name || displayPhone(chat.phone)}
-                    </span>
-                    {chat.needs_human && (
-                      <span className="shrink-0 rounded bg-amber-500/20 px-1.5 py-0.5 text-[9px] font-semibold text-amber-300">
-                        humano
-                      </span>
-                    )}
-                  </div>
-                  <p className="truncate text-xs text-muted-foreground">
-                    {chat.lastMessage || "—"}
-                  </p>
-                  <div className="mt-1 flex flex-wrap gap-1">
-                    <span className="rounded bg-secondary px-1.5 py-0.5 text-[10px] text-muted-foreground">
-                      {stepLabel(chat.current_step)}
-                    </span>
-                    <span className="rounded bg-primary/15 px-1.5 py-0.5 text-[10px] text-primary">
-                      score {chat.lead_score ?? 0}
-                    </span>
-                  </div>
-                </div>
-              </button>
-            ))}
+          <div className="flex items-center gap-3">
+            <Link href="/login" className="text-sm text-muted-foreground hover:text-foreground">
+              Entrar
+            </Link>
+            <Link
+              href="/register"
+              className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
+            >
+              Comecar gratis
+            </Link>
           </div>
         </div>
+      </header>
 
-        {/* Detalhe */}
-        <div className="flex flex-1 flex-col">
-          {selectedPhone && detail ? (
-            <>
-              <div className="flex flex-wrap items-center gap-3 border-b border-border px-4 py-3">
-                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/20 text-xs font-bold text-primary">
-                  {displayPhone(selectedPhone).slice(-2)}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium">
-                    {detail.display_name || displayPhone(selectedPhone)}
-                  </p>
-                  <p className="text-[11px] text-muted-foreground">
-                    {channelIcon(detail.channel)} · {stepLabel(step)} · score{" "}
-                    {score}
-                    {needsHuman ? " · aguardando humano" : ""}
-                  </p>
-                </div>
+      <section className="mx-auto max-w-6xl px-4 py-20 text-center">
+        <p className="mb-4 text-sm font-medium text-primary">IA de vendas omnichannel</p>
+        <h1 className="text-4xl font-bold tracking-tight sm:text-5xl md:text-6xl">
+          Venda a Escova Alisadora 3 em 1
+          <br />
+          <span className="text-primary">no WhatsApp com IA</span>
+        </h1>
+        <p className="mx-auto mt-6 max-w-2xl text-lg text-muted-foreground">
+          Atenda leads, avance o funil no Kanban e feche pedidos da Escova Alisadora 3 em 1 com IA no WhatsApp.
+        </p>
+        <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
+          <Link
+            href="/register"
+            className="inline-flex items-center gap-2 rounded-xl bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
+          >
+            Criar conta <ArrowRight className="h-4 w-4" />
+          </Link>
+          <Link
+            href="/login"
+            className="rounded-xl border border-border px-6 py-3 text-sm font-medium hover:bg-secondary"
+          >
+            Acessar painel
+          </Link>
+        </div>
+      </section>
 
-                <div className="flex flex-wrap items-center gap-1.5">
-                  <select
-                    className="h-8 rounded-md border border-border bg-secondary/50 px-2 text-[11px]"
-                    value={detail.bot_mode || "full"}
-                    onChange={(e) =>
-                      modeMut.mutate(
-                        e.target.value as "full" | "hybrid" | "human"
-                      )
-                    }
-                    title="Modo do bot"
-                  >
-                    <option value="full">Bot full</option>
-                    <option value="hybrid">Híbrido</option>
-                    <option value="human">Só humano</option>
-                  </select>
-
-                  {!needsHuman ? (
-                    <button
-                      type="button"
-                      onClick={() => handoffMut.mutate()}
-                      disabled={handoffMut.isPending}
-                      className="inline-flex h-8 items-center gap-1 rounded-md bg-amber-500/20 px-2.5 text-[11px] font-medium text-amber-200 hover:bg-amber-500/30"
-                    >
-                      <HandMetal className="h-3.5 w-3.5" />
-                      Handoff
-                    </button>
-                  ) : (
-                    <>
-                      <button
-                        type="button"
-                        onClick={() => claimMut.mutate()}
-                        disabled={claimMut.isPending}
-                        className="inline-flex h-8 items-center gap-1 rounded-md bg-primary/20 px-2.5 text-[11px] font-medium text-primary hover:bg-primary/30"
-                      >
-                        <UserRound className="h-3.5 w-3.5" />
-                        Assumir
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => releaseMut.mutate()}
-                        disabled={releaseMut.isPending}
-                        className="inline-flex h-8 items-center gap-1 rounded-md bg-secondary px-2.5 text-[11px] font-medium text-muted-foreground hover:text-foreground"
-                      >
-                        <Bot className="h-3.5 w-3.5" />
-                        Devolver ao bot
-                      </button>
-                    </>
-                  )}
-                </div>
-              </div>
-
-              {detail.handoff_summary && needsHuman && (
-                <div className="border-b border-border bg-amber-500/5 px-4 py-2 text-[11px] text-muted-foreground whitespace-pre-wrap max-h-28 overflow-y-auto">
-                  <span className="font-medium text-amber-200/90">
-                    Resumo do handoff
-                  </span>
-                  {"\n"}
-                  {detail.handoff_summary}
-                </div>
-              )}
-
-              <div className="flex-1 space-y-3 overflow-y-auto p-4">
-                {loadingDetail && (
-                  <p className="text-sm text-muted-foreground">
-                    Carregando mensagens...
-                  </p>
-                )}
-                {messages.map((m, i) => (
-                  <div
-                    key={m.id ?? i}
-                    className={cn(
-                      "max-w-[75%] rounded-2xl px-4 py-2.5 text-sm",
-                      m.role === "assistant" || m.direction === "outgoing"
-                        ? "rounded-bl-sm bg-primary/20"
-                        : "ml-auto rounded-br-sm bg-secondary"
-                    )}
-                  >
-                    {m.content}
-                  </div>
-                ))}
-              </div>
-
-              <div className="border-t border-border p-4">
-                <form
-                  className="flex gap-2"
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    if (!text.trim() || sendMut.isPending) return;
-                    sendMut.mutate();
-                  }}
-                >
-                  <input
-                    type="text"
-                    value={text}
-                    onChange={(e) => setText(e.target.value)}
-                    placeholder="Responder como humano..."
-                    className="flex-1 rounded-lg border border-border bg-secondary/50 px-4 py-2.5 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-                  />
-                  <button
-                    type="submit"
-                    disabled={sendMut.isPending || !text.trim()}
-                    className="rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
-                  >
-                    Enviar
-                  </button>
-                </form>
-              </div>
-            </>
-          ) : (
-            <div className="flex flex-1 flex-col items-center justify-center gap-3 p-8 text-center">
-              <MessageSquare className="h-10 w-10 text-muted-foreground/40" />
-              <p className="text-sm text-muted-foreground">
-                {list.length === 0
-                  ? "Conecte um canal para começar a vender"
-                  : "Selecione uma conversa"}
-              </p>
+      <section className="border-y border-border bg-card/50 py-16">
+        <div className="mx-auto grid max-w-6xl gap-8 px-4 sm:grid-cols-2 lg:grid-cols-4">
+          {[
+            { icon: MessageSquare, title: "Inbox unificada", desc: "Conversas de varios canais em um so lugar" },
+            { icon: GitBranch, title: "Kanban vivo", desc: "Leads andam conforme o atendimento" },
+            { icon: Zap, title: "IA comercial", desc: "Respostas com contexto e funil" },
+            { icon: Shield, title: "Multi-usuario", desc: "Equipe com acesso seguro ao painel" },
+          ].map((f) => (
+            <div key={f.title} className="rounded-xl border border-border bg-card p-6">
+              <f.icon className="mb-3 h-8 w-8 text-primary" />
+              <h3 className="font-semibold">{f.title}</h3>
+              <p className="mt-2 text-sm text-muted-foreground">{f.desc}</p>
             </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="mx-auto max-w-6xl px-4 py-16">
+        <h2 className="text-center text-2xl font-bold">Canais</h2>
+        <p className="mx-auto mt-2 max-w-xl text-center text-sm text-muted-foreground">
+          WhatsApp ativo. Instagram e Facebook preparados (Meta). Marketplaces na roadmap.
+        </p>
+        <div className="mt-8 flex flex-wrap justify-center gap-3">
+          {["WhatsApp", "Instagram", "Facebook", "Mercado Livre", "Shopee", "TikTok", "YouTube"].map(
+            (c, i) => (
+              <span
+                key={c}
+                className={`rounded-full border px-4 py-1.5 text-sm ${
+                  i === 0
+                    ? "border-primary/40 bg-primary/15 text-primary"
+                    : i < 3
+                      ? "border-border bg-secondary text-foreground"
+                      : "border-border text-muted-foreground"
+                }`}
+              >
+                {c}
+                {i === 0 ? " · ativo" : i < 3 ? " · base pronta" : " · em breve"}
+              </span>
+            )
           )}
         </div>
-      </div>
-    </>
+      </section>
+
+      <footer className="border-t border-border py-8 text-center text-sm text-muted-foreground">
+        JARVIS Comercial · Vendas com IA
+      </footer>
+    </div>
   );
 }
