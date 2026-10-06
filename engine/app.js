@@ -114,11 +114,11 @@ app.get('/metrics', (req, res) => {
 });
 
 app.get('/health', (req, res) => {
+    // BUG-044: /health publico pra monitoramento (load balancer, uptime),
+    // mas sem expor produto/modo interno.
     res.json({
         status: 'ok',
-        product: 'Escova Alisadora 3 em 1',
         version: '1.6.0',
-        mode: useQueue ? 'queue' : 'inline',
         timestamp: new Date().toISOString(),
     });
 });
