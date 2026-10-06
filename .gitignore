@@ -31,3 +31,6 @@ jarvis-patch.zip
 *.bak[0-9]
 backup-*.sql
 backups-db/
+*.bak-*
+*.bak*
+*.bak*
