@@ -56,6 +56,10 @@ services:
     volumes:
       - jarvis_auth:/app/auth_info_jarvis
       - jarvis_logs:/app/logs
+      # BUG-009: bind mounts p/ dev — código do host reflete no container
+      - ./scripts:/app/scripts
+      - ./bot_volumetrao.json:/app/bot_volumetrao.json:ro
+      - ./engine:/app/engine    # OPCIONAL — só se engine do host == engine da imagem
     depends_on:
       postgres:
         condition: service_healthy
@@ -92,6 +96,10 @@ services:
     volumes:
       - jarvis_auth:/app/auth_info_jarvis
       - jarvis_logs:/app/logs
+      # BUG-009: mesmo padrão do api
+      - ./scripts:/app/scripts
+      - ./bot_volumetrao.json:/app/bot_volumetrao.json:ro
+      - ./engine:/app/engine    # OPCIONAL — só se engine do host == engine da imagem
     depends_on:
       postgres:
         condition: service_healthy
