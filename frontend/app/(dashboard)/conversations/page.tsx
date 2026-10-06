@@ -1,7 +1,7 @@
 "use client";
 
 import { Header } from "@/components/layout/header";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useApiMutation } from "@/lib/use-api-mutation";
 import {
@@ -35,11 +35,14 @@ function displayPhone(phone: string) {
     .replace(/^(instagram|facebook):/, "");
 }
 
+// BUG-051: fallback dinamico — se canal desconhecido, mostra 2 primeiras letras maiusculas
 function channelIcon(channel?: string) {
-  const ch = (channel || "whatsapp").toLowerCase();
+  const ch = (channel || "whatsapp").toLowerCase().trim();
   if (ch.includes("instagram")) return "IG";
   if (ch.includes("facebook") || ch.includes("messenger")) return "FB";
-  return "WA";
+  if (ch === "whatsapp" || ch === "wa") return "WA";
+  if (!ch) return "WA";
+  return ch.slice(0, 2).toUpperCase();
 }
 
 export default function ConversationsPage() {
@@ -56,11 +59,7 @@ export default function ConversationsPage() {
 
   const list = Array.isArray(chats) ? chats : [];
 
-  useEffect(() => {
-    if (!selectedPhone && list.length > 0) {
-      setSelectedPhone(list[0].phone);
-    }
-  }, [list, selectedPhone]);
+  // BUG-054: nao auto-seleciona a 1a conversa; usuario escolhe.
 
   const { data: detail, isLoading: loadingDetail } = useQuery({
     queryKey: ["conversation", selectedPhone],
