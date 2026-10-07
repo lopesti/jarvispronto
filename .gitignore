@@ -9,8 +9,6 @@ auth_info_jarvis/
 auth_info/
 *.log
 .DS_Store
-package-lock.json
-yarn.lock
 backup_*/
 *.backup
 estrutura*.txt
@@ -26,11 +24,6 @@ nginx/certs/*.key
 !nginx/certs/.gitignore
 jarvis-patch.zip
 
-*.bak
-
-*.bak[0-9]
+*.bak*
 backup-*.sql
 backups-db/
-*.bak-*
-*.bak*
-*.bak*
