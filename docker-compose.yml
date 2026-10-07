@@ -59,7 +59,7 @@ services:
       # BUG-009: bind mounts p/ dev — código do host reflete no container
       - ./scripts:/app/scripts
       - ./bot_volumetrao.json:/app/bot_volumetrao.json:ro
-      - ./engine:/app/engine    # OPCIONAL — só se engine do host == engine da imagem
+      - ./engine:/app/engine
     depends_on:
       postgres:
         condition: service_healthy
@@ -93,13 +93,19 @@ services:
       WORKER_HTTP_PORT: "3002"
     expose:
       - "3002"
+    # ─── BUG-073: worker não escuta HTTP na 3000 ───
+    # O Dockerfile define HEALTHCHECK global que testa
+    # http://localhost:3000/health — inexistente neste serviço.
+    # Como a imagem não tem pgrep nem curl, desabilitamos via NONE.
+    healthcheck:
+      test: ["NONE"]
     volumes:
       - jarvis_auth:/app/auth_info_jarvis
       - jarvis_logs:/app/logs
       # BUG-009: mesmo padrão do api
       - ./scripts:/app/scripts
       - ./bot_volumetrao.json:/app/bot_volumetrao.json:ro
-      - ./engine:/app/engine    # OPCIONAL — só se engine do host == engine da imagem
+      - ./engine:/app/engine
     depends_on:
       postgres:
         condition: service_healthy

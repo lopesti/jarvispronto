@@ -97,9 +97,9 @@ app.use('/api/produtos', authMiddleware, require('./routes/produtos'));
 app.use('/api/conversations', authMiddleware, require('./routes/conversations'));
 app.use('/api/etiquetas', authMiddleware, require('./routes/etiquetas'));
 app.use('/api/simulation', authMiddleware, require('./routes/simulation'));
-app.use('/api/channels', require('./routes/channels'));
+app.use('/api/channels', authMiddleware, require('./routes/channels'));   // BUG-079: authMiddleware adicionado
 app.use('/api/companies', authMiddleware, require('./routes/companies'));
-app.use('/api/whatsapp', require('./routes/whatsapp'));
+app.use('/api/whatsapp', authMiddleware, require('./routes/whatsapp'));   // BUG-078: authMiddleware adicionado
 
 app.use('/internal', require('./routes/internal'));
 
@@ -121,6 +121,14 @@ app.get('/health', (req, res) => {
         version: '1.6.0',
         timestamp: new Date().toISOString(),
     });
+});
+
+// ═══════════════════════════════════════════════════════════
+//  404 handler JSON (BUG-076)
+//  Precisa vir DEPOIS de todas as rotas e ANTES do app.listen.
+// ═══════════════════════════════════════════════════════════
+app.use((req, res) => {
+    res.status(404).json({ error: 'Not Found', path: req.originalUrl });
 });
 
 // ═══════════════════════════════════════════════════════════
