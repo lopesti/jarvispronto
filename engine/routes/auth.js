@@ -52,9 +52,22 @@ router.post('/register', async (req, res) => {
     const companyName = String(name).trim() + " — Empresa";
     const slugBase = normalizedEmail.split("@")[0].replace(/[^a-z0-9]/gi, "-").slice(0, 40);
     const slug = slugBase + "-" + Date.now().toString(36);
+
+    // ─── BUG-081: empresa nova nasce com prompt generico proprio ───
+    // Evita que a IA caia no fallback global (bot_volumetrao.json) e
+    // responda sobre produto de outro tenant.
+    const defaultConfig = {
+      systemPrompt:
+        `Voce e o assistente virtual da ${companyName}. ` +
+        `Responda sempre em portugues, de forma educada e objetiva. ` +
+        `Ajude o cliente a conhecer os produtos, tirar duvidas e avancar na compra. ` +
+        `Quando nao souber algo, seja honesto e ofereca falar com um atendente humano.`,
+      fallbackMessage: 'Desculpe, nao entendi. Pode reformular sua pergunta?',
+    };
+
     const companyRes = await query(
-      `INSERT INTO companies (name, slug) VALUES ($1, $2) RETURNING id, name`,
-      [companyName, slug]
+      `INSERT INTO companies (name, slug, config) VALUES ($1, $2, $3::jsonb) RETURNING id, name`,
+      [companyName, slug, JSON.stringify(defaultConfig)]
     );
     const company = companyRes.rows[0];
 
