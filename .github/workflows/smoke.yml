@@ -1,0 +1,75 @@
+﻿name: smoke
+
+on:
+  push:
+    branches: [main, master, develop]
+  pull_request:
+    branches: [main, master, develop]
+
+jobs:
+  smoke:
+    name: Smoke tests (C1-C3)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Instalar dependencias
+        run: npm install
+
+      - name: Gerar .env de CI
+        run: |
+          cat > .env <<EOF
+          NODE_ENV=production
+          PORT=3000
+          TRUST_PROXY=1
+          DATABASE_URL=postgres://jarvis:ci_test_password_strong@postgres:5432/jarvispronto
+          POSTGRES_USER=jarvis
+          POSTGRES_PASSWORD=ci_test_password_strong
+          POSTGRES_DB=jarvispronto
+          REDIS_URL=redis://redis:6379
+          JWT_SECRET=ci_jwt_secret_at_least_32_chars_long_x
+          INTERNAL_SIM_TOKEN=ci_internal_token_at_least_32_chars_ok
+          GEMINI_API_KEY=
+          GROQ_API_KEY=
+          USE_MESSAGE_QUEUE=0
+          CORS_ORIGINS=http://localhost,https://localhost
+          EOF
+
+      - name: Gerar cert self-signed pro nginx
+        run: |
+          mkdir -p nginx/certs
+          openssl req -x509 -nodes -days 1 -newkey rsa:2048 \
+            -keyout nginx/certs/privkey.pem \
+            -out nginx/certs/fullchain.pem \
+            -subj "/CN=localhost"
+
+      - name: Subir stack Docker
+        run: docker compose up -d --wait
+
+      - name: Rodar smoke tests
+        run: npm run test:smoke
+
+      - name: Logs em caso de falha
+        if: failure()
+        run: |
+          echo "=== docker compose ps ==="
+          docker compose ps
+          echo "=== logs api ==="
+          docker compose logs api --tail 50
+          echo "=== logs nginx ==="
+          docker compose logs nginx --tail 30
+          echo "=== logs worker ==="
+          docker compose logs worker --tail 30
+
+      - name: Derrubar stack
+        if: always()
+        run: docker compose down -v
