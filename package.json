@@ -1,8 +1,8 @@
-{
+﻿{
   "name": "jarvispronto",
   "version": "1.5.1",
   "license": "ISC",
-  "description": "JARVIS Comercial \u2014 Escova Alisadora 3 em 1 \u00b7 WhatsApp \u00b7 IA \u00b7 Nginx",
+  "description": "JARVIS Comercial — Escova Alisadora 3 em 1 · WhatsApp · IA · Nginx",
   "main": "engine/app.js",
   "scripts": {
     "start": "node engine/app.js",
@@ -10,6 +10,12 @@
     "migrate": "node -e \"require('./engine/models/migrate').runMigrations()\"",
     "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js --coverage --forceExit",
     "test:unit": "node --experimental-vm-modules node_modules/jest/bin/jest.js --testPathPattern=tests/unit --forceExit",
+    "test:integration": "node --experimental-vm-modules node_modules/jest/bin/jest.js --testPathPattern=tests/integration --forceExit",
+    "test:smoke": "node tests/smoke/run-all.js",
+    "test:c1": "node tests/smoke/c1-infra.js",
+    "test:c2": "node tests/smoke/c2-public-api.js",
+    "test:c3": "node tests/smoke/c3-auth.js",
+    "test:all": "npm run test:smoke && npm test",
     "lint": "node -e \"console.log('lint ok')\""
   },
   "dependencies": {
@@ -37,9 +43,8 @@
   },
   "jest": {
     "testEnvironment": "node",
-    "testMatch": [
-      "**/tests/**/*.test.js"
-    ],
+    "testMatch": ["**/tests/**/*.test.js"],
+    "setupFiles": ["<rootDir>/tests/setup/env.js"],
     "collectCoverageFrom": [
       "engine/utils/**/*.js",
       "engine/services/authService.js",
