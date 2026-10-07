@@ -1,4 +1,4 @@
-require('dotenv').config({ path: require('path').resolve(__dirname, '../.env') });
+﻿require('dotenv').config({ path: require('path').resolve(__dirname, '../.env') });
 const express = require('express');
 const cors = require('cors');
 const rateLimit = require('express-rate-limit');
@@ -32,6 +32,7 @@ app.use(express.urlencoded({ extended: true }));
 
 // ═══════════════════════════════════════════════════════════
 //  CORS — allowlist estrita (BUG-004 CORRIGIDO)
+//  + aceita *.trycloudflare.com (Cloudflare Tunnel quick)
 // ═══════════════════════════════════════════════════════════
 const allowedOrigins = (
     process.env.CORS_ORIGINS ||
@@ -49,6 +50,12 @@ app.use(
             if (!origin) return cb(null, true);
             if (allowedOrigins.includes(origin)) return cb(null, true);
             if (/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)) {
+                return cb(null, true);
+            }
+            // ─── Cloudflare Tunnel (quick tunnels trycloudflare.com) ───
+            // Aceita qualquer URL https://xxx.trycloudflare.com sem
+            // precisar editar .env quando a URL do tunel mudar.
+            if (/^https:\/\/[a-z0-9-]+\.trycloudflare\.com$/.test(origin)) {
                 return cb(null, true);
             }
             logger.warn('[CORS] Origem rejeitada: ' + origin);
@@ -97,9 +104,9 @@ app.use('/api/produtos', authMiddleware, require('./routes/produtos'));
 app.use('/api/conversations', authMiddleware, require('./routes/conversations'));
 app.use('/api/etiquetas', authMiddleware, require('./routes/etiquetas'));
 app.use('/api/simulation', authMiddleware, require('./routes/simulation'));
-app.use('/api/channels', authMiddleware, require('./routes/channels'));   // BUG-079: authMiddleware adicionado
+app.use('/api/channels', authMiddleware, require('./routes/channels'));
 app.use('/api/companies', authMiddleware, require('./routes/companies'));
-app.use('/api/whatsapp', authMiddleware, require('./routes/whatsapp'));   // BUG-078: authMiddleware adicionado
+app.use('/api/whatsapp', authMiddleware, require('./routes/whatsapp'));
 
 app.use('/internal', require('./routes/internal'));
 
