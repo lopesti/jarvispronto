@@ -13,12 +13,14 @@ import {
   Package,
   AlertCircle,
   LifeBuoy,
+  Shield,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ThemeToggle } from "./theme-toggle";
 import { useQuery } from "@tanstack/react-query";
-import { getChannelStatus, getConversations } from "@/lib/api";
+import { getChannelStatus, getConversations, isSuperadmin } from "@/lib/api";
 import { getTickets } from "@/lib/support-api";
+import { useState, useEffect } from "react";
 
 const navItems = [
   { href: "/overview", label: "Overview", icon: LayoutDashboard },
@@ -33,6 +35,11 @@ const navItems = [
 
 export function Sidebar() {
   const pathname = usePathname();
+  const [superadmin, setSuperadmin] = useState(false);
+
+  useEffect(() => {
+    setSuperadmin(isSuperadmin());
+  }, []);
 
   const { data: channels } = useQuery({
     queryKey: ["channels"],
@@ -114,7 +121,7 @@ export function Sidebar() {
         )}
       </div>
 
-      <nav className="flex-1 space-y-1 p-3">
+      <nav className="flex-1 space-y-1 overflow-y-auto p-3">
         {navItems.map((item) => {
           const isActive = pathname.startsWith(item.href);
           const Icon = item.icon;
@@ -148,6 +155,27 @@ export function Sidebar() {
             </Link>
           );
         })}
+
+        {superadmin && (
+          <>
+            <div className="my-2 border-t border-border" />
+            <Link
+              href="/admin"
+              className={cn(
+                "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors",
+                pathname.startsWith("/admin")
+                  ? "bg-red-500/15 text-red-400 font-medium"
+                  : "text-muted-foreground hover:bg-red-500/10 hover:text-red-400"
+              )}
+            >
+              <Shield className="h-4 w-4 shrink-0" />
+              <span className="flex-1">Painel Admin</span>
+              <span className="rounded-full bg-red-500/20 px-1.5 py-0.5 text-[10px] font-semibold text-red-400">
+                ADMIN
+              </span>
+            </Link>
+          </>
+        )}
       </nav>
 
       <div className="border-t border-border p-4 text-[10px] text-muted-foreground">

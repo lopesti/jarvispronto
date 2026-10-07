@@ -21,6 +21,7 @@ function publicUser(row) {
     email: row.email,
     role: row.role || 'user',
     companyId: row.company_id || row.companyId || null,
+    is_superadmin: row.is_superadmin === true,  // ← NOVO
     created_at: row.created_at,
   };
 }
@@ -54,8 +55,6 @@ router.post('/register', async (req, res) => {
     const slug = slugBase + "-" + Date.now().toString(36);
 
     // ─── BUG-081: empresa nova nasce com prompt generico proprio ───
-    // Evita que a IA caia no fallback global (bot_volumetrao.json) e
-    // responda sobre produto de outro tenant.
     const defaultConfig = {
       systemPrompt:
         `Voce e o assistente virtual da ${companyName}. ` +
@@ -74,7 +73,7 @@ router.post('/register', async (req, res) => {
     const result = await query(
       `INSERT INTO users (name, email, password, role, company_id, created_at)
        VALUES ($1, $2, $3, 'owner', $4, NOW())
-       RETURNING id, name, email, role, company_id, created_at`,
+       RETURNING id, name, email, role, company_id, is_superadmin, created_at`,
       [String(name).trim(), normalizedEmail, hashedPassword, company.id]
     );
 
@@ -110,7 +109,6 @@ router.post('/login', async (req, res) => {
       normalizedEmail,
     ]);
 
-    // resposta generica evita enumeracao de usuarios
     if (result.rows.length === 0) {
       return res.status(401).json({ error: 'Credenciais invalidas' });
     }
@@ -169,10 +167,9 @@ router.post('/logout', async (req, res) => {
 
 router.get('/me', authMiddleware, async (req, res) => {
   try {
-    // BUG-007 corrigido: SELECT agora inclui company_id
-    // sem isso, publicUser() retornava companyId: null mesmo com o banco tendo o valor
+    // BUG-007 corrigido + is_superadmin incluido
     const result = await query(
-      'SELECT id, name, email, role, company_id, created_at FROM users WHERE id = $1',
+      'SELECT id, name, email, role, company_id, is_superadmin, created_at FROM users WHERE id = $1',
       [req.user.id]
     );
     if (result.rows.length === 0) {

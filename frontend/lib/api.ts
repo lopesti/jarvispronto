@@ -66,6 +66,7 @@ export type AuthUser = {
   role?: string;
   created_at?: string;
   companyId?: number;
+  is_superadmin?: boolean;
 };
 
 export type Conversation = {
@@ -373,4 +374,24 @@ export async function disconnectWhatsApp(clearAuth = false) {
 export async function getWhatsAppQr() {
   const { data } = await api.get("/api/whatsapp/qr");
   return data as { qrImage?: string; hint?: string } & WhatsAppStatus;
+}
+
+// ═══════════════════════════════════════════════════════════
+//  Helpers de sessão (superadmin, user atual)
+// ═══════════════════════════════════════════════════════════
+
+export function getCurrentUser(): AuthUser | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = localStorage.getItem("jarvis_user");
+    if (!raw) return null;
+    return JSON.parse(raw) as AuthUser;
+  } catch {
+    return null;
+  }
+}
+
+export function isSuperadmin(): boolean {
+  const user = getCurrentUser();
+  return user?.is_superadmin === true;
 }
