@@ -1,13 +1,14 @@
-// tests/smoke/run-all.js — orquestrador C1 → C2 → C3
+// tests/smoke/run-all.js — orquestrador C1 → C2 → C3 → C5
 // Roda: node tests/smoke/run-all.js
 
 const { spawnSync } = require('child_process');
 const path = require('path');
 
 const camadas = [
-  { nome: 'C1 (Infra)',       file: 'c1-infra.js' },
-  { nome: 'C2 (API pública)', file: 'c2-public-api.js' },
-  { nome: 'C3 (Auth)',        file: 'c3-auth.js' },
+  { nome: 'C1 (Infra)',        file: 'c1-infra.js' },
+  { nome: 'C2 (API pública)',  file: 'c2-public-api.js' },
+  { nome: 'C3 (Auth)',         file: 'c3-auth.js' },
+  { nome: 'C5 (Isolamento)',   file: 'c5-tenant.js' },
 ];
 
 const results = [];
@@ -22,6 +23,6 @@ for (const c of camadas) {
 }
 
 console.log('\n\x1b[32m═══════════════════════════════════════\x1b[0m');
-console.log('\x1b[32m✅ Todas as camadas C1-C3 passaram\x1b[0m');
+console.log('\x1b[32m✅ Todas as camadas C1-C3-C5 passaram\x1b[0m');
 console.log('\x1b[32m═══════════════════════════════════════\x1b[0m');
 process.exit(0);

@@ -15,6 +15,7 @@
     "test:c1": "node tests/smoke/c1-infra.js",
     "test:c2": "node tests/smoke/c2-public-api.js",
     "test:c3": "node tests/smoke/c3-auth.js",
+    "test:c5": "node tests/smoke/c5-tenant.js",
     "test:all": "npm run test:smoke && npm test",
     "lint": "node -e \"console.log('lint ok')\""
   },
