@@ -1,4 +1,4 @@
-﻿// tests/smoke/c1-infra.js — Camada 1: Infra
+// tests/smoke/c1-infra.js — Camada 1: Infra
 // Roda: node tests/smoke/c1-infra.js
 
 const { execSync } = require('child_process');

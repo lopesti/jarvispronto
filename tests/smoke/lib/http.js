@@ -1,4 +1,4 @@
-﻿// tests/smoke/lib/http.js
+// tests/smoke/lib/http.js
 // Helper compartilhado pelos smoke tests (C1-C3).
 // Sem dependências externas — usa fetch nativo do Node 18+.
 

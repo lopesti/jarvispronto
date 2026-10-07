@@ -1,4 +1,4 @@
-﻿// tests/smoke/c3-auth.js — Camada 3: Auth (barreiras)
+// tests/smoke/c3-auth.js — Camada 3: Auth (barreiras)
 // Roda: node tests/smoke/c3-auth.js
 
 const { httpGet, httpPost, check, section, summary, exitCode } = require('./lib/http');

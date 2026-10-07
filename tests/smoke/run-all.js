@@ -1,4 +1,4 @@
-﻿// tests/smoke/run-all.js — orquestrador C1 → C2 → C3
+// tests/smoke/run-all.js — orquestrador C1 → C2 → C3
 // Roda: node tests/smoke/run-all.js
 
 const { spawnSync } = require('child_process');

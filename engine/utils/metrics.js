@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Métricas Prometheus com isolamento por tenant (BUG-032)
  *
  * - Contadores globais (soma de todos os tenants)

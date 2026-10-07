@@ -1,4 +1,4 @@
-﻿const fs = require('fs');
+const fs = require('fs');
 const path = require('path');
 
 const BASE_DIR = path.resolve(__dirname, '../../data/group_insights');

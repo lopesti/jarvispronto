@@ -1,4 +1,4 @@
-﻿// tests/smoke/c2-public-api.js — Camada 2: API pública
+// tests/smoke/c2-public-api.js — Camada 2: API pública
 // Roda: node tests/smoke/c2-public-api.js
 
 const { httpGet, check, section, summary, exitCode } = require('./lib/http');
