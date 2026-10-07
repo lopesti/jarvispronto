@@ -53,7 +53,7 @@ jobs:
             -subj "/CN=localhost"
 
       - name: Subir stack Docker
-        run: docker compose up -d --wait
+        run: docker compose --profile full up -d --wait
 
       - name: Rodar smoke tests
         run: npm run test:smoke
