@@ -12,11 +12,13 @@ import {
   Radio,
   Package,
   AlertCircle,
+  LifeBuoy,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ThemeToggle } from "./theme-toggle";
 import { useQuery } from "@tanstack/react-query";
 import { getChannelStatus, getConversations } from "@/lib/api";
+import { getTickets } from "@/lib/support-api";
 
 const navItems = [
   { href: "/overview", label: "Overview", icon: LayoutDashboard },
@@ -25,6 +27,7 @@ const navItems = [
   { href: "/leads", label: "Leads", icon: Users },
   { href: "/channels", label: "Canais", icon: Radio },
   { href: "/produtos", label: "Produtos", icon: Package },
+  { href: "/support", label: "Suporte", icon: LifeBuoy },
   { href: "/settings", label: "Configuracoes", icon: Settings },
 ];
 
@@ -43,11 +46,23 @@ export function Sidebar() {
     refetchInterval: 10000,
   });
 
+  const { data: tickets = [] } = useQuery({
+    queryKey: ["support-tickets"],
+    queryFn: getTickets,
+    refetchInterval: 15000,
+  });
+
   const wa = channels?.whatsapp;
   const waConnected = !!wa?.connected;
   const waQr = !!wa?.qrPending;
   const channelOk = waConnected;
   const needsCount = Array.isArray(needsList) ? needsList.length : 0;
+
+  const ticketsList = Array.isArray(tickets) ? tickets : [];
+  const ticketsUnread = ticketsList.reduce(
+    (acc, t) => acc + Number(t.unread_count || 0),
+    0
+  );
 
   return (
     <aside className="flex h-screen w-64 flex-col border-r border-border bg-card">
@@ -64,7 +79,6 @@ export function Sidebar() {
         <ThemeToggle />
       </div>
 
-      {/* Status do canal — inspirado SaleSmartly */}
       <div className="border-b border-border px-4 py-3">
         <div className="flex items-center gap-2 rounded-lg bg-secondary/60 px-3 py-2">
           <span
@@ -87,7 +101,7 @@ export function Sidebar() {
                 href="/channels"
                 className="text-[10px] text-primary hover:underline"
               >
-                Conectar canal →
+                Conectar canal
               </Link>
             )}
           </div>
@@ -104,8 +118,10 @@ export function Sidebar() {
         {navItems.map((item) => {
           const isActive = pathname.startsWith(item.href);
           const Icon = item.icon;
-          const showBadge =
+          const showNeedsBadge =
             item.href === "/conversations" && needsCount > 0;
+          const showSupportBadge =
+            item.href === "/support" && ticketsUnread > 0;
           return (
             <Link
               key={item.href}
@@ -119,9 +135,14 @@ export function Sidebar() {
             >
               <Icon className="h-4 w-4 shrink-0" />
               <span className="flex-1">{item.label}</span>
-              {showBadge && (
+              {showNeedsBadge && (
                 <span className="rounded-full bg-amber-500/20 px-1.5 py-0.5 text-[10px] font-semibold text-amber-300">
                   {needsCount}
+                </span>
+              )}
+              {showSupportBadge && (
+                <span className="rounded-full bg-primary/20 px-1.5 py-0.5 text-[10px] font-semibold text-primary">
+                  {ticketsUnread}
                 </span>
               )}
             </Link>
@@ -130,7 +151,7 @@ export function Sidebar() {
       </nav>
 
       <div className="border-t border-border p-4 text-[10px] text-muted-foreground">
-        TCC · Funil + score + handoff
+        TCC - Funil + score + handoff
       </div>
     </aside>
   );
