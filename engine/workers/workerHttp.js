@@ -33,6 +33,12 @@ function companyIdFromReq(req) {
 async function startWorkerHttp() {
   const app = express();
   app.use(express.json({ limit: '1mb' }));
+
+  // ─── Rota pública de healthcheck (Docker/K8s) — NÃO exige token ───
+  // Precisa vir ANTES do authCheck. BUG-073: healthcheck do worker.
+  app.get('/health', (req, res) => res.status(200).json({ status: 'ok' }));
+
+  // ─── Daqui pra baixo tudo exige token interno ───
   app.use(authCheck);
 
   app.get('/status', (req, res) => {
