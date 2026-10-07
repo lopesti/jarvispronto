@@ -16,6 +16,7 @@ import {
   type Conversation,
 } from "@/lib/api";
 import { cn } from "@/lib/utils";
+import { EmptyState } from "@/components/ui/empty-state";
 import {
   MessageSquare,
   Radio,
@@ -23,6 +24,8 @@ import {
   Bot,
   HandMetal,
   Filter,
+  Inbox,
+  Users,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -35,7 +38,6 @@ function displayPhone(phone: string) {
     .replace(/^(instagram|facebook):/, "");
 }
 
-// BUG-051: fallback dinamico — se canal desconhecido, mostra 2 primeiras letras maiusculas
 function channelIcon(channel?: string) {
   const ch = (channel || "whatsapp").toLowerCase().trim();
   if (ch.includes("instagram")) return "IG";
@@ -57,9 +59,20 @@ export default function ConversationsPage() {
     refetchInterval: 8000,
   });
 
-  const list = Array.isArray(chats) ? chats : [];
+  // Query secundaria pra contadores (pega TODAS as conversas)
+  const { data: allChats = [] } = useQuery({
+    queryKey: ["conversations-counts"],
+    queryFn: () => getConversations({}),
+    refetchInterval: 15000,
+  });
 
-  // BUG-054: nao auto-seleciona a 1a conversa; usuario escolhe.
+  const list = Array.isArray(chats) ? chats : [];
+  const allList = Array.isArray(allChats) ? allChats : [];
+  const counts = {
+    all: allList.length,
+    needs_human: allList.filter((c) => c.needs_human).length,
+    mine: allList.filter((c) => c.assigned_to).length,
+  };
 
   const { data: detail, isLoading: loadingDetail } = useQuery({
     queryKey: ["conversation", selectedPhone],
@@ -74,6 +87,7 @@ export default function ConversationsPage() {
   const invalidate = () => {
     qc.invalidateQueries({ queryKey: ["conversation", selectedPhone] });
     qc.invalidateQueries({ queryKey: ["conversations"] });
+    qc.invalidateQueries({ queryKey: ["conversations-counts"] });
   };
 
   const sendMut = useApiMutation({
@@ -118,10 +132,10 @@ export default function ConversationsPage() {
   const step = detail?.current_step || "inicio";
   const score = Number(detail?.lead_score ?? 0);
 
-  const filters: { id: ListFilter; label: string }[] = [
-    { id: "all", label: "Todas" },
-    { id: "needs_human", label: "Precisa humano" },
-    { id: "mine", label: "Minhas" },
+  const filters: { id: ListFilter; label: string; count: number }[] = [
+    { id: "all", label: "Todas", count: counts.all },
+    { id: "needs_human", label: "Precisa humano", count: counts.needs_human },
+    { id: "mine", label: "Minhas", count: counts.mine },
   ];
 
   return (
@@ -150,37 +164,64 @@ export default function ConversationsPage() {
                 )}
               >
                 {f.label}
+                {f.count > 0 && (
+                  <span
+                    className={cn(
+                      "ml-1 rounded-full px-1.5 py-0.5 text-[9px]",
+                      filter === f.id
+                        ? "bg-primary/25 text-primary"
+                        : "bg-secondary text-muted-foreground"
+                    )}
+                  >
+                    {f.count}
+                  </span>
+                )}
               </button>
             ))}
           </div>
 
           <div className="flex-1 overflow-y-auto">
             {isLoading && (
-              <p className="p-4 text-sm text-muted-foreground">Carregando...</p>
+              <div className="space-y-2 p-3">
+                {[1, 2, 3].map((i) => (
+                  <div
+                    key={i}
+                    className="h-20 animate-pulse rounded-lg border border-border bg-card/30"
+                  />
+                ))}
+              </div>
             )}
 
             {!isLoading && list.length === 0 && (
-              <div className="flex flex-col items-center justify-center gap-3 px-6 py-16 text-center">
-                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-secondary">
-                  <MessageSquare className="h-7 w-7 text-muted-foreground" />
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-foreground">
-                    Ainda nao ha sessao
-                  </p>
-                  <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
-                    Apos conectar o WhatsApp, as mensagens dos clientes entram
-                    no funil de vendas automaticamente.
-                  </p>
-                </div>
-                <Link
-                  href="/channels"
-                  className="mt-2 inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-xs font-medium text-primary-foreground hover:bg-primary/90"
-                >
-                  <Radio className="h-3.5 w-3.5" />
-                  Conectar canal
-                </Link>
-              </div>
+              <EmptyState
+                icon={filter === "needs_human" ? Users : MessageSquare}
+                title={
+                  filter === "needs_human"
+                    ? "Ninguem precisa de voce"
+                    : filter === "mine"
+                      ? "Nenhuma conversa sua"
+                      : "Ainda nao ha sessao"
+                }
+                description={
+                  filter === "needs_human"
+                    ? "Quando uma conversa precisar de atendimento humano, ela aparece aqui."
+                    : filter === "mine"
+                      ? "Quando voce assumir uma conversa, ela vai aparecer aqui."
+                      : "Apos conectar o WhatsApp, as mensagens dos clientes entram no funil automaticamente."
+                }
+                actions={
+                  filter === "all"
+                    ? [
+                        {
+                          label: "Conectar canal",
+                          href: "/channels",
+                          icon: Radio,
+                        },
+                      ]
+                    : []
+                }
+                compact
+              />
             )}
 
             {list.map((chat: Conversation) => (
@@ -356,13 +397,24 @@ export default function ConversationsPage() {
               </div>
             </>
           ) : (
-            <div className="flex flex-1 flex-col items-center justify-center gap-3 p-8 text-center">
-              <MessageSquare className="h-10 w-10 text-muted-foreground/40" />
-              <p className="text-sm text-muted-foreground">
-                {list.length === 0
-                  ? "Conecte um canal para comecar a vender"
-                  : "Selecione uma conversa"}
-              </p>
+            <div className="flex flex-1 items-center justify-center">
+              {list.length === 0 && filter === "all" ? (
+                <EmptyState
+                  icon={Inbox}
+                  title="Nenhuma conversa ainda"
+                  description="Conecte o WhatsApp e as mensagens dos seus clientes vao aparecer aqui automaticamente com funil, score e historico."
+                  actions={[
+                    { label: "Conectar WhatsApp", href: "/channels", icon: Radio },
+                  ]}
+                />
+              ) : (
+                <EmptyState
+                  icon={MessageSquare}
+                  title="Selecione uma conversa"
+                  description="Escolha uma conversa na lista a esquerda para ver o historico e responder."
+                  compact
+                />
+              )}
             </div>
           )}
         </div>
