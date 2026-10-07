@@ -23,6 +23,7 @@ function hashToken(token) {
 
 function signAccessToken(user) {
   const companyId = user.company_id || user.companyId || null;
+  const isSuperadmin = user.is_superadmin === true;
 
   assertSecret();
   return jwt.sign(
@@ -32,6 +33,7 @@ function signAccessToken(user) {
       name: user.name,
       role: user.role || 'user',
       companyId: companyId,
+      is_superadmin: isSuperadmin,
       type: 'access',
     },
     JWT_SECRET,
@@ -113,7 +115,7 @@ async function rotateRefreshToken(oldRaw) {
   await query(`UPDATE refresh_tokens SET revoked_at = NOW() WHERE id = $1`, [row.id]);
 
   const userRes = await query(
-    `SELECT id, name, email, role FROM users WHERE id = $1`,
+    `SELECT id, name, email, role, company_id, is_superadmin FROM users WHERE id = $1`,
     [row.user_id]
   );
   if (userRes.rows.length === 0) {

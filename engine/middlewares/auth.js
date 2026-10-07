@@ -23,6 +23,7 @@ module.exports = function authMiddleware(req, res, next) {
       name: decoded.name,
       role: decoded.role || 'user',
       companyId: decoded.companyId || decoded.company_id || null,
+      is_superadmin: decoded.is_superadmin === true,  // ← NOVO
     };
     if (!req.user.companyId) {
       return res.status(403).json({

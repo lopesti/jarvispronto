@@ -4,6 +4,7 @@ const cors = require('cors');
 const rateLimit = require('express-rate-limit');
 const logger = require('./utils/logger');
 const authMiddleware = require('./middlewares/auth');
+const requireSuperadmin = require('./middlewares/requireSuperadmin');
 
 // ═══════════════════════════════════════════════════════════
 //  Validação de env obrigatórios
@@ -53,8 +54,6 @@ app.use(
                 return cb(null, true);
             }
             // ─── Cloudflare Tunnel (quick tunnels trycloudflare.com) ───
-            // Aceita qualquer URL https://xxx.trycloudflare.com sem
-            // precisar editar .env quando a URL do tunel mudar.
             if (/^https:\/\/[a-z0-9-]+\.trycloudflare\.com$/.test(origin)) {
                 return cb(null, true);
             }
@@ -74,8 +73,6 @@ app.use((err, req, res, next) => {
 
 // ═══════════════════════════════════════════════════════════
 //  Rate limiting
-//  200/15min era baixo demais pro polling do dashboard.
-//  Producao: 3000/15min. Dev: 30000/15min.
 // ═══════════════════════════════════════════════════════════
 const apiLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
@@ -108,10 +105,14 @@ app.use('/api/channels', authMiddleware, require('./routes/channels'));
 app.use('/api/companies', authMiddleware, require('./routes/companies'));
 app.use('/api/whatsapp', authMiddleware, require('./routes/whatsapp'));
 
+// ─── Suporte (empresa) e Admin (superadmin) — FASE 3.1 ───
+app.use('/api/support', authMiddleware, require('./routes/support'));
+app.use('/api/admin/support', authMiddleware, requireSuperadmin, require('./routes/adminSupport'));
+
 app.use('/internal', require('./routes/internal'));
 
 // ═══════════════════════════════════════════════════════════
-//  Health check + Metrics (BUG-032: metricas por tenant)
+//  Health check + Metrics
 // ═══════════════════════════════════════════════════════════
 app.get('/metrics', (req, res) => {
     const { getMetrics } = require('./utils/metrics');
@@ -121,8 +122,6 @@ app.get('/metrics', (req, res) => {
 });
 
 app.get('/health', (req, res) => {
-    // BUG-044: /health publico pra monitoramento (load balancer, uptime),
-    // mas sem expor produto/modo interno.
     res.json({
         status: 'ok',
         version: '1.6.0',
@@ -132,7 +131,6 @@ app.get('/health', (req, res) => {
 
 // ═══════════════════════════════════════════════════════════
 //  404 handler JSON (BUG-076)
-//  Precisa vir DEPOIS de todas as rotas e ANTES do app.listen.
 // ═══════════════════════════════════════════════════════════
 app.use((req, res) => {
     res.status(404).json({ error: 'Not Found', path: req.originalUrl });
@@ -144,17 +142,12 @@ app.use((req, res) => {
 const whatsappService = require('./services/whatsappService');
 
 if (useQueue) {
-    // ─── MODO FILA ───
-    // API NAO abre socket WA — worker eh dono unico
     logger.info('[boot] Modo fila ativo (USE_MESSAGE_QUEUE=1)');
     logger.info('[boot] Socket WA: gerenciado pelo worker (docker compose --profile full up)');
 } else {
-    // ─── MODO INLINE ───
-    // API abre socket WA e processa direto
     logger.info('[boot] Modo inline (USE_MESSAGE_QUEUE=0)');
     logger.info('[boot] WhatsApp: modo multi-empresa. Conecte em POST /api/whatsapp/connect');
 
-    // Auto-connect opcional
     if (process.env.WA_AUTO_CONNECT_COMPANY && process.env.WA_AUTO_CONNECT_COMPANY !== '0') {
         const cid = Number(process.env.WA_AUTO_CONNECT_COMPANY) || 1;
         whatsappService
