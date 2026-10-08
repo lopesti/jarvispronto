@@ -27,6 +27,18 @@ function publicUser(row) {
 }
 
 router.post('/register', async (req, res) => {
+  // ─── FIX: respeita flags de registro publico (Fase 3 do relatorio) ───
+  const registrationAllowed =
+    process.env.ALLOW_REGISTER !== 'false' &&
+    process.env.ENABLE_REGISTRATION !== 'false' &&
+    process.env.ALLOW_PUBLIC_SIGNUP !== 'false';
+
+  if (!registrationAllowed) {
+    return res.status(403).json({
+      error: 'Cadastro publico desabilitado',
+      code: 'REGISTRATION_DISABLED',
+    });
+  }
   try {
     const { name, email, password } = req.body || {};
 

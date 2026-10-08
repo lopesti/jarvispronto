@@ -27,3 +27,6 @@ jarvis-patch.zip
 *.bak*
 backup-*.sql
 backups-db/
+*.tsbuildinfo
+
+*.tsbuildinfo
