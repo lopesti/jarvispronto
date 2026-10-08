@@ -17,7 +17,6 @@ const PORT = Number(process.env.WORKER_HTTP_PORT) || 3002;
 const INTERNAL_TOKEN = process.env.INTERNAL_SIM_TOKEN || '';
 
 function authCheck(req, res, next) {
-  if (!INTERNAL_TOKEN) return next(); // dev sem token
   const got = req.headers['x-internal-token'];
   if (got !== INTERNAL_TOKEN) {
     return res.status(401).json({ error: 'Token interno invalido' });
@@ -31,6 +30,11 @@ function companyIdFromReq(req) {
 }
 
 async function startWorkerHttp() {
+  // ─── FIX: exige INTERNAL_SIM_TOKEN no boot ───
+  if (!INTERNAL_TOKEN) {
+    logger.error('[worker-http] INTERNAL_SIM_TOKEN ausente - recusando iniciar');
+    throw new Error('INTERNAL_SIM_TOKEN obrigatorio');
+  }
   const app = express();
   app.use(express.json({ limit: '1mb' }));
 

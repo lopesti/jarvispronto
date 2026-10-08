@@ -1,4 +1,4 @@
-﻿require('dotenv').config({ path: require('path').resolve(__dirname, '../.env') });
+require('dotenv').config({ path: require('path').resolve(__dirname, '../.env') });
 const express = require('express');
 const cors = require('cors');
 const rateLimit = require('express-rate-limit');
@@ -165,13 +165,23 @@ if (useQueue) {
 //  Migrations + Listen
 // ═══════════════════════════════════════════════════════════
 const { runMigrations } = require('./models/migrate');
-runMigrations();
 
-app.listen(PORT, () => {
-    logger.info(`Servidor rodando em http://0.0.0.0:${PORT} v1.6.0 mode=${useQueue ? 'queue' : 'inline'}`);
-    logger.info('Via Nginx: http://localhost/');
-});
+(async () => {
+    try {
+        logger.info('[boot] Rodando migrations...');
+        await runMigrations();
+        logger.info('[boot] Migrations OK. Subindo servidor...');
 
+        app.listen(PORT, () => {
+            logger.info(`Servidor rodando em http://0.0.0.0:${PORT} v1.6.0 mode=${useQueue ? 'queue' : 'inline'}`);
+            logger.info('Via Nginx: http://localhost/');
+        });
+    } catch (err) {
+        logger.error('[boot] FALHA nas migrations. API nao vai subir.');
+        logger.error(err.message);
+        process.exit(1);
+    }
+})();
 process.on('SIGINT', async () => {
     logger.info('Desligando...');
     if (!useQueue) {
