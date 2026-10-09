@@ -7,11 +7,20 @@ import {
   getChannelStatus,
   stepLabel,
 } from "@/lib/api";
+import { EmptyState } from "@/components/ui/empty-state";
 import Link from "next/link";
-import { MessageSquare, Radio, HandMetal, TrendingUp } from "lucide-react";
+import {
+  MessageSquare,
+  Radio,
+  HandMetal,
+  TrendingUp,
+  Send,
+  MessageCircle,
+  AlertTriangle,
+} from "lucide-react";
 
 export default function OverviewPage() {
-  const { data: conversations = [] } = useQuery({
+  const { data: conversations = [], isLoading } = useQuery({
     queryKey: ["conversations"],
     queryFn: () => getConversations(),
     refetchInterval: 15000,
@@ -39,6 +48,7 @@ export default function OverviewPage() {
       : 0;
 
   const waConnected = !!channels?.whatsapp?.connected;
+  const urgentList = list.filter((c) => c.needs_human).slice(0, 3);
 
   return (
     <>
@@ -46,7 +56,9 @@ export default function OverviewPage() {
         title="Dashboard"
         subtitle="Cockpit de vendas · funil, score e handoff"
       />
+
       <div className="flex-1 overflow-y-auto p-6">
+        {/* Banner WhatsApp desconectado */}
         {!waConnected && (
           <div className="mb-6 flex flex-col gap-3 rounded-xl border border-border bg-card p-5 sm:flex-row sm:items-center">
             <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-secondary">
@@ -67,57 +79,112 @@ export default function OverviewPage() {
           </div>
         )}
 
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          <div className="rounded-xl border border-border bg-card p-4">
-            <div className="flex items-center gap-2 text-muted-foreground">
-              <MessageSquare className="h-4 w-4" />
-              <p className="text-xs">Conversas</p>
-            </div>
-            <p className="mt-2 text-2xl font-bold">{totalConversations}</p>
+        {/* KPIs */}
+        {isLoading ? (
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            {[1, 2, 3, 4].map((i) => (
+              <div
+                key={i}
+                className="h-24 animate-pulse rounded-xl border border-border bg-card/50"
+              />
+            ))}
           </div>
-          <div className="rounded-xl border border-border bg-card p-4">
-            <div className="flex items-center gap-2 text-muted-foreground">
-              <HandMetal className="h-4 w-4" />
-              <p className="text-xs">Precisa humano</p>
-            </div>
-            <p className="mt-2 text-2xl font-bold text-amber-300">{needsHuman}</p>
+        ) : (
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            <KpiCard
+              icon={MessageSquare}
+              label="Conversas"
+              value={totalConversations}
+              color="text-blue-400"
+              bg="bg-blue-500/15"
+            />
+            <KpiCard
+              icon={HandMetal}
+              label="Precisa humano"
+              value={needsHuman}
+              color={needsHuman > 0 ? "text-amber-300" : "text-muted-foreground"}
+              bg={needsHuman > 0 ? "bg-amber-500/15" : "bg-secondary"}
+              alert={needsHuman > 0}
+            />
+            <KpiCard
+              icon={TrendingUp}
+              label="Score médio"
+              value={avgScore}
+              color="text-emerald-400"
+              bg="bg-emerald-500/15"
+            />
+            <KpiCard
+              icon={Send}
+              label="Mensagens"
+              value={totalMessages}
+              color="text-cyan-400"
+              bg="bg-cyan-500/15"
+            />
           </div>
-          <div className="rounded-xl border border-border bg-card p-4">
-            <div className="flex items-center gap-2 text-muted-foreground">
-              <TrendingUp className="h-4 w-4" />
-              <p className="text-xs">Score médio</p>
-            </div>
-            <p className="mt-2 text-2xl font-bold">{avgScore}</p>
-          </div>
-          <div className="rounded-xl border border-border bg-card p-4">
-            <p className="text-xs text-muted-foreground">Mensagens</p>
-            <p className="mt-2 text-2xl font-bold">{totalMessages}</p>
-          </div>
-        </div>
+        )}
 
+        {/* Precisa atenção */}
+        {!isLoading && urgentList.length > 0 && (
+          <div className="mt-6 rounded-xl border border-amber-500/30 bg-amber-500/5 p-4">
+            <div className="mb-3 flex items-center gap-2">
+              <AlertTriangle className="h-4 w-4 text-amber-400" />
+              <h3 className="text-sm font-semibold">
+                Precisa de atenção ({urgentList.length})
+              </h3>
+            </div>
+            <div className="space-y-2">
+              {urgentList.map((conv) => (
+                <Link
+                  key={conv.phone}
+                  href="/conversations"
+                  className="flex items-center justify-between rounded-lg bg-card/50 px-3 py-2 transition-colors hover:bg-card"
+                >
+                  <p className="truncate text-sm font-medium">
+                    {conv.display_name ||
+                      conv.phone.replace("@s.whatsapp.net", "")}
+                  </p>
+                  <span className="shrink-0 rounded bg-amber-500/20 px-2 py-0.5 text-[10px] font-semibold text-amber-300">
+                    aguardando
+                  </span>
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Últimas conversas */}
         <div className="mt-6 rounded-xl border border-border bg-card p-4">
           <div className="mb-4 flex items-center justify-between">
             <h3 className="text-sm font-semibold">Últimas conversas</h3>
-            <Link
-              href="/conversations"
-              className="text-xs text-primary hover:underline"
-            >
-              Ver inbox
-            </Link>
-          </div>
-          {list.length === 0 ? (
-            <div className="flex flex-col items-center gap-2 py-10 text-center">
-              <MessageSquare className="h-8 w-8 text-muted-foreground/40" />
-              <p className="text-sm text-muted-foreground">
-                Nenhuma conversa ainda
-              </p>
+            {list.length > 0 && (
               <Link
-                href="/channels"
+                href="/conversations"
                 className="text-xs text-primary hover:underline"
               >
-                Conectar canal →
+                Ver inbox
               </Link>
+            )}
+          </div>
+
+          {isLoading ? (
+            <div className="space-y-3">
+              {[1, 2, 3].map((i) => (
+                <div
+                  key={i}
+                  className="h-14 animate-pulse rounded-lg border border-border bg-muted/30"
+                />
+              ))}
             </div>
+          ) : list.length === 0 ? (
+            <EmptyState
+              icon={MessageCircle}
+              title="Nenhuma conversa ainda"
+              description="Conecte o WhatsApp e as mensagens dos seus clientes vão aparecer aqui automaticamente com funil, score e histórico."
+              actions={[
+                { label: "Conectar WhatsApp", href: "/channels", icon: Radio },
+              ]}
+              compact
+            />
           ) : (
             <div className="space-y-3">
               {list.slice(0, 6).map((conv) => (
@@ -154,5 +221,39 @@ export default function OverviewPage() {
         </div>
       </div>
     </>
+  );
+}
+
+// ─── Componente KPI ─────────────────────────────────────
+type KpiCardProps = {
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  value: number | string;
+  color: string;
+  bg: string;
+  alert?: boolean;
+};
+
+function KpiCard({ icon: Icon, label, value, color, bg, alert }: KpiCardProps) {
+  return (
+    <div className="rounded-xl border border-border bg-card p-4">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2 text-muted-foreground">
+          <Icon className="h-4 w-4" />
+          <p className="text-xs">{label}</p>
+        </div>
+        <div className={`flex h-7 w-7 items-center justify-center rounded-lg ${bg}`}>
+          <Icon className={`h-3.5 w-3.5 ${color}`} />
+        </div>
+      </div>
+      <div className="mt-2 flex items-baseline gap-2">
+        <p className={`text-2xl font-bold ${color}`}>{value}</p>
+        {alert && (
+          <span className="rounded bg-amber-500/20 px-1.5 py-0.5 text-[10px] font-semibold text-amber-300">
+            ação
+          </span>
+        )}
+      </div>
+    </div>
   );
 }
