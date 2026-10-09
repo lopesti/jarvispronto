@@ -1,0 +1,22 @@
+# .gitleaks.toml
+# Configuração do Gitleaks pro projeto jarvispronto
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Falsos positivos conhecidos"
+paths = [
+    '''\.github/workflows/ci\.yml''',
+    '''\.github/workflows/smoke\.yml''',
+    '''\.env\.example''',
+    '''tests/.*''',
+]
+
+# Regex pra ignorar valores claramente de teste
+regexes = [
+    '''test_secret.*''',
+    '''test_password.*''',
+    '''ci_.*_test.*''',
+    '''test_secret_min_16_chars_ok''',
+]
