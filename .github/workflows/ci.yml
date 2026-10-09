@@ -6,15 +6,12 @@ on:
   pull_request:
     branches: [main, master, develop]
 
-# Cancela runs antigos se você der push várias vezes na mesma branch
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-# Permissões mínimas necessárias (segurança)
 permissions:
   contents: read
-  pull-requests: read
 
 jobs:
   lint:
@@ -27,7 +24,6 @@ jobs:
         with:
           node-version: '20'
           cache: 'npm'
-      # npm ci é determinístico e mais rápido que npm install
       - run: npm ci
       - run: npm run lint
 
@@ -57,23 +53,13 @@ jobs:
           cache: 'npm'
       - run: npm ci
 
-      - name: Unit tests (com coverage)
-        run: npm test -- --coverage
+      - name: Unit tests
+        run: npm test
         env:
           JWT_SECRET: test_secret_min_16_chars_ok
           DATABASE_URL: postgres://test:test@localhost:5432/test
           NODE_ENV: test
 
-      # Upload do coverage (opcional — precisa configurar Codecov)
-      - name: Upload coverage
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: coverage
-          path: coverage/
-          retention-days: 7
-
-      # Frontend: typecheck com cache próprio
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
@@ -97,7 +83,7 @@ jobs:
       - name: Setup Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Build API image (com cache)
+      - name: Build API image
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -107,7 +93,7 @@ jobs:
           cache-from: type=gha,scope=api
           cache-to: type=gha,mode=max,scope=api
 
-      - name: Build frontend image (com cache)
+      - name: Build frontend image
         uses: docker/build-push-action@v6
         with:
           context: frontend
@@ -129,3 +115,4 @@ jobs:
         uses: gitleaks/gitleaks-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_CONFIG: .gitleaks.toml
