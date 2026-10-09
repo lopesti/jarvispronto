@@ -40,22 +40,18 @@ services:
       NODE_ENV: production
       PORT: 3000
       TRUST_PROXY: "1"
-      # BUG-005 corrigido: secrets vêm do .env (nunca hardcoded)
       DATABASE_URL: ${DATABASE_URL:?DATABASE_URL must be set in .env}
       PGHOST: postgres
       PGPORT: 5432
       PGUSER: ${POSTGRES_USER:-jarvis}
       PGPASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env}
       PGDATABASE: ${POSTGRES_DB:-jarvispronto}
-      # Fila/cache
       REDIS_URL: redis://redis:6379
       USE_MESSAGE_QUEUE: ${USE_MESSAGE_QUEUE:-0}
-      # BUG-072: em mode=queue a API delega comandos de WA pro worker
       WORKER_INTERNAL_URL: http://worker:3002
     volumes:
       - jarvis_auth:/app/auth_info_jarvis
       - jarvis_logs:/app/logs
-      # BUG-009: bind mounts p/ dev — código do host reflete no container
       - ./scripts:/app/scripts
       - ./bot_volumetrao.json:/app/bot_volumetrao.json:ro
       - ./engine:/app/engine
@@ -67,7 +63,6 @@ services:
     networks:
       - jarvis-net
 
-  # Worker (modo fila — sobe com --profile full)
   worker:
     build:
       context: .
@@ -88,13 +83,9 @@ services:
       REDIS_URL: redis://redis:6379
       USE_MESSAGE_QUEUE: "1"
       WORKER_CONCURRENCY: ${WORKER_CONCURRENCY:-5}
-      # BUG-072: mini servidor HTTP interno pro API delegar comandos de WA
       WORKER_HTTP_PORT: "3002"
     expose:
       - "3002"
-    # ─── BUG-073: worker healthcheck via /health na porta 3002 ───
-    # O 'docker compose up --wait' exige healthcheck em TODOS os containers.
-    # Rota /health é pública (não exige token) — healthcheck simples.
     healthcheck:
       test: ["CMD-SHELL", "node -e \"require('http').get('http://localhost:3002/health', r => process.exit(r.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))\""]
       interval: 15s
@@ -104,7 +95,6 @@ services:
     volumes:
       - jarvis_auth:/app/auth_info_jarvis
       - jarvis_logs:/app/logs
-      # BUG-009: mesmo padrão do api
       - ./scripts:/app/scripts
       - ./bot_volumetrao.json:/app/bot_volumetrao.json:ro
       - ./engine:/app/engine
@@ -143,10 +133,8 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-jarvis}
-      # BUG-005 corrigido: falha se não estiver no .env
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
       POSTGRES_DB: ${POSTGRES_DB:-jarvispronto}
-    # BUG-006 corrigido: nao expor 5432 no host
     expose:
       - "5432"
     volumes:
@@ -182,13 +170,49 @@ services:
     image: redis:7-alpine
     container_name: jarvis-redis
     restart: unless-stopped
-    # BUG-006 corrigido: nao expor 6379 no host
     expose:
       - "6379"
     volumes:
       - jarvis_redis:/data
     networks:
       - jarvis-net
+
+  # ═══════════════════════════════════════════════════════════
+  #  n8n — Automação visual (opcional, sobe com --profile n8n)
+  #  Uso: docker compose --profile n8n up -d
+  #  Acesso: http://localhost:5678
+  #  Login: admin / JarvisN8n2026!
+  # ═══════════════════════════════════════════════════════════
+  n8n:
+    image: n8nio/n8n:latest
+    container_name: jarvis-n8n
+    restart: unless-stopped
+    ports:
+      - "5678:5678"
+    environment:
+      # Auth basica
+      N8N_BASIC_AUTH_ACTIVE: "true"
+      N8N_BASIC_AUTH_USER: "admin"
+      N8N_BASIC_AUTH_PASSWORD: "JarvisN8n2026!"
+      # Host/porta
+      N8N_HOST: "localhost"
+      N8N_PORT: "5678"
+      N8N_PROTOCOL: "http"
+      # Timezone
+      GENERIC_TIMEZONE: "America/Sao_Paulo"
+      TZ: "America/Sao_Paulo"
+      # Permite chamadas entre containers da rede jarvis-net
+      N8N_SECURE_COOKIE: "false"
+      # Webhook URL (trocar quando tiver domínio público)
+      WEBHOOK_URL: "http://localhost:5678/"
+      # Desabilita telemetria
+      N8N_DIAGNOSTICS_ENABLED: "false"
+    volumes:
+      - n8n_data:/home/node/.n8n
+    networks:
+      - jarvis-net
+    profiles:
+      - n8n
 
 volumes:
   jarvis_auth:
@@ -197,6 +221,7 @@ volumes:
   jarvis_redis:
   certbot_www:
   certbot_etc:
+  n8n_data:
 
 networks:
   jarvis-net:

@@ -1,0 +1,45 @@
+# docker-compose.prod.yml
+# ─────────────────────────────────────────────────────────────
+# Uso SOMENTE quando quiser rodar com imagens prontas do ghcr.io
+# (ex: na VM Azure). Não afeta o desenvolvimento local.
+#
+# Comando:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml --profile full up -d
+#
+# Requer no .env: IMAGE_TAG=main (ou sha-xxxxx, ou v1.0.0)
+# ─────────────────────────────────────────────────────────────
+
+services:
+  api:
+    image: ghcr.io/lopesti/jarvispronto/api:${IMAGE_TAG:-main}
+    build: !reset null
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  worker:
+    image: ghcr.io/lopesti/jarvispronto/api:${IMAGE_TAG:-main}
+    build: !reset null
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  frontend:
+    image: ghcr.io/lopesti/jarvispronto/frontend:${IMAGE_TAG:-main}
+    build: !reset null
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  simulator:
+    image: ghcr.io/lopesti/jarvispronto/simulator:${IMAGE_TAG:-main}
+    build: !reset null
+
+  # nginx, postgres, redis, certbot, n8n já são só `image:` no compose base
+  # — não precisam ser sobrescritos aqui.

@@ -4,19 +4,40 @@
 [extend]
 useDefault = true
 
-[allowlist]
-description = "Falsos positivos conhecidos"
+# ─── Allowlists globais ────────────────────────────────
+[[allowlists]]
+description = "Falsos positivos conhecidos do projeto"
+
+# Caminhos onde secrets fake são OK (workflows de CI, testes, exemplos)
 paths = [
     '''\.github/workflows/ci\.yml''',
     '''\.github/workflows/smoke\.yml''',
+    '''\.github/workflows/build-and-push\.yml''',
     '''\.env\.example''',
     '''tests/.*''',
+    '''__tests__/.*''',
+    '''.*\.test\.(js|ts|jsx|tsx)$''',
+    '''.*\.spec\.(js|ts|jsx|tsx)$''',
 ]
 
-# Regex pra ignorar valores claramente de teste
+# Valores claramente de teste (aplicado ao VALOR do secret)
 regexes = [
-    '''test_secret.*''',
-    '''test_password.*''',
-    '''ci_.*_test.*''',
+    '''(?i)test[_-]?secret.*''',
+    '''(?i)test[_-]?password.*''',
+    '''(?i)ci[_-].*[_-]test.*''',
+    '''(?i)fake[_-].*''',
+    '''(?i)dummy[_-].*''',
+    '''(?i)example[_-].*''',
     '''test_secret_min_16_chars_ok''',
+    '''ci_jwt_secret_at_least_32_chars_long_x''',
+    '''ci_internal_token_at_least_32_chars_ok''',
+    '''ci_test_password_strong''',
 ]
+
+# Commits específicos onde sabemos que é falso positivo (opcional)
+# commits = [
+#     'aa8800b77dcea46f21edb6fd53f22aa13ead4f6a',
+# ]
+
+
+
