@@ -1,0 +1,48 @@
+name: Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: 'Tag da imagem no ghcr.io (ex: main, sha-abc1234)'
+        required: true
+        default: 'main'
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Deploy na VM Azure
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: production
+      url: https://seu-dominio-ou-ip
+
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.AZURE_HOST }}
+          username: ${{ secrets.AZURE_USER }}
+          key: ${{ secrets.AZURE_SSH_KEY }}
+          port: ${{ secrets.AZURE_PORT || 22 }}
+          script_stop: true
+          script: |
+            set -e
+            cd /opt/jarvispronto
+            export IMAGE_TAG=${{ github.event.inputs.image_tag }}
+            echo "==> Fazendo login no ghcr.io"
+            echo "${{ secrets.GHCR_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+            echo "==> Pull das imagens (tag: $IMAGE_TAG)"
+            docker compose -f docker-compose.yml -f docker-compose.prod.yml pull
+            echo "==> Subindo stack"
+            docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --wait --remove-orphans
+            echo "==> Limpando imagens antigas"
+            docker image prune -f
+            docker compose ps

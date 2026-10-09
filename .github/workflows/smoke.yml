@@ -1,16 +1,24 @@
-﻿name: smoke
+﻿name: Smoke
 
 on:
   push:
     branches: [main, master, develop]
   pull_request:
     branches: [main, master, develop]
+  workflow_dispatch:
+
+concurrency:
+  group: smoke-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
 
 jobs:
   smoke:
     name: Smoke tests (C1-C3)
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
 
     steps:
       - name: Checkout
@@ -22,8 +30,8 @@ jobs:
           node-version: '20'
           cache: 'npm'
 
-      - name: Instalar dependencias
-        run: npm install
+      - name: Instalar dependências
+        run: npm ci
 
       - name: Gerar .env de CI
         run: |
@@ -52,24 +60,51 @@ jobs:
             -out nginx/certs/fullchain.pem \
             -subj "/CN=localhost"
 
+      - name: Setup Buildx
+        uses: docker/setup-buildx-action@v3
+
       - name: Subir stack Docker
         run: docker compose --profile full up -d --wait
+        env:
+          DOCKER_BUILDKIT: 1
+
+      - name: Aguardar API responder
+        run: |
+          for i in {1..30}; do
+            if curl -fsS http://localhost:3000/health >/dev/null 2>&1; then
+              echo "API pronta!"
+              exit 0
+            fi
+            echo "Tentativa $i/30 — aguardando API..."
+            sleep 2
+          done
+          echo "API não respondeu em 60s"
+          exit 1
 
       - name: Rodar smoke tests
         run: npm run test:smoke
+        env:
+          BASE_URL: http://localhost:3000
 
-      - name: Logs em caso de falha
-        if: failure()
+      - name: Dump de logs (sempre, para debug)
+        if: always()
         run: |
-          echo "=== docker compose ps ==="
-          docker compose ps
-          echo "=== logs api ==="
-          docker compose logs api --tail 50
-          echo "=== logs nginx ==="
-          docker compose logs nginx --tail 30
-          echo "=== logs worker ==="
-          docker compose logs worker --tail 30
+          mkdir -p ci-logs
+          docker compose ps > ci-logs/compose-ps.txt 2>&1 || true
+          docker compose logs --no-color api     > ci-logs/api.log     2>&1 || true
+          docker compose logs --no-color nginx   > ci-logs/nginx.log   2>&1 || true
+          docker compose logs --no-color worker  > ci-logs/worker.log  2>&1 || true
+          docker compose logs --no-color postgres> ci-logs/postgres.log 2>&1 || true
+          docker compose logs --no-color redis   > ci-logs/redis.log   2>&1 || true
+
+      - name: Upload logs em caso de falha
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-logs-${{ github.run_id }}
+          path: ci-logs/
+          retention-days: 7
 
       - name: Derrubar stack
         if: always()
-        run: docker compose down -v
+        run: docker compose down -v --remove-orphans
