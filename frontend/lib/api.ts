@@ -82,6 +82,11 @@ export type Conversation = {
   assigned_to?: number | null;
   handoff_summary?: string | null;
   bot_mode?: "full" | "hybrid" | "human" | string;
+  deal_value?: number | string | null;
+  lead_source?: string | null;
+  tags?: string[] | string | null;
+  notes?: string | null;
+  probability?: number | null;
   createdAt?: string;
   updatedAt?: string;
   lastMessage?: string;
@@ -304,7 +309,22 @@ export async function getLeads(channel?: string) {
     status: c.status || "active",
     needs_human: !!c.needs_human,
     messageCount: Number(c.messageCount || 0),
+    deal_value: Number(c.deal_value || 0),
+    lead_source: c.lead_source || "",
+    tags: Array.isArray(c.tags) ? c.tags : (typeof c.tags === "string" ? safeJsonArr(c.tags) : []),
+    notes: c.notes || "",
+    probability: Number(c.probability || 0),
+    updatedAt: c.updatedAt,
   }));
+}
+
+function safeJsonArr(v: string): string[] {
+  try {
+    const parsed = JSON.parse(v);
+    return Array.isArray(parsed) ? parsed.map(String) : [];
+  } catch {
+    return [];
+  }
 }
 
 export type Produto = {
@@ -526,4 +546,140 @@ export async function getFunnelAnalytics() {
     total: number;
     steps: Array<{ step: string; total: number; avg_score: number; pipeline_value: number }>;
   };
+}
+
+
+// ─── Tasks / follow-up ────────────────────────────────────
+export type LeadTask = {
+  id: number;
+  phone: string;
+  title: string;
+  description?: string | null;
+  due_at?: string | null;
+  status: string;
+  priority: string;
+  assigned_to?: number | null;
+  assignee_name?: string | null;
+  created_at?: string;
+  completed_at?: string | null;
+};
+
+export async function getLeadTasks(opts?: { status?: string; phone?: string }) {
+  const { data } = await api.get("/api/crm/tasks", {
+    params: {
+      ...(opts?.status ? { status: opts.status } : {}),
+      ...(opts?.phone ? { phone: opts.phone } : {}),
+    },
+  });
+  return data as LeadTask[];
+}
+
+export async function createLeadTask(payload: {
+  phone: string;
+  title: string;
+  description?: string;
+  due_at?: string | null;
+  priority?: string;
+  assigned_to?: number | null;
+}) {
+  const { data } = await api.post("/api/crm/tasks", payload);
+  return data as LeadTask;
+}
+
+export async function updateLeadTask(
+  id: number,
+  payload: Partial<{
+    title: string;
+    description: string;
+    due_at: string | null;
+    priority: string;
+    status: string;
+    assigned_to: number | null;
+  }>
+) {
+  const { data } = await api.patch(`/api/crm/tasks/${id}`, payload);
+  return data as LeadTask;
+}
+
+export async function deleteLeadTask(id: number) {
+  const { data } = await api.delete(`/api/crm/tasks/${id}`);
+  return data;
+}
+
+
+// ─── Notifications ────────────────────────────────────────
+export type AppNotification = {
+  id: number;
+  type: string;
+  title: string;
+  body?: string | null;
+  payload?: Record<string, unknown>;
+  read_at?: string | null;
+  created_at?: string;
+};
+
+export async function getNotifications(unreadOnly = false) {
+  const { data } = await api.get("/api/crm/notifications", {
+    params: unreadOnly ? { unread: "1" } : {},
+  });
+  return data as AppNotification[];
+}
+
+export async function markNotificationsRead(ids?: number[]) {
+  const { data } = await api.post("/api/crm/notifications/read", {
+    ids: ids || [],
+  });
+  return data;
+}
+
+export async function checkOverdueTasksNow() {
+  const { data } = await api.post("/api/crm/tasks/check-overdue");
+  return data as { notified: number };
+}
+
+// ─── Company config / onboarding ──────────────────────────
+export async function getCompanyConfig(companyId: number) {
+  const { data } = await api.get(`/api/companies/${companyId}/config`);
+  return data as { id: number; name: string; config: Record<string, unknown> };
+}
+
+export async function updateCompanyConfig(
+  companyId: number,
+  patch: Record<string, unknown>
+) {
+  const { data } = await api.put(`/api/companies/${companyId}/config`, patch);
+  // API pode retornar company direto ou { ok, company }
+  const company = (data as any)?.company || data;
+  return company as { id: number; name: string; config: Record<string, unknown> };
+}
+
+export function getStoredUser(): AuthUser | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = localStorage.getItem("jarvis_user");
+    return raw ? (JSON.parse(raw) as AuthUser) : null;
+  } catch {
+    return null;
+  }
+}
+
+// ─── Web Push ─────────────────────────────────────────────
+export async function getVapidPublicKey() {
+  const { data } = await api.get("/api/crm/push/vapid-public-key");
+  return data as { publicKey: string };
+}
+
+export async function subscribePush(subscription: PushSubscriptionJSON) {
+  const { data } = await api.post("/api/crm/push/subscribe", { subscription });
+  return data;
+}
+
+export async function unsubscribePush(endpoint: string) {
+  const { data } = await api.post("/api/crm/push/unsubscribe", { endpoint });
+  return data;
+}
+
+export async function testPush(message?: string) {
+  const { data } = await api.post("/api/crm/push/test", { message });
+  return data as { sent: number; failed: number };
 }

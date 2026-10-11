@@ -1,6 +1,7 @@
 "use client";
 
-import { Bell, Search, LogOut, Menu } from "lucide-react";
+import { Search, LogOut, Menu } from "lucide-react";
+import { NotificationBell } from "./notification-bell";
 import { useEffect, useState } from "react";
 import { logout, type AuthUser } from "@/lib/api";
 import { useRouter } from "next/navigation";
@@ -71,13 +72,7 @@ export function Header({ title, subtitle }: HeaderProps) {
           />
         </div>
 
-        <button
-          type="button"
-          className="relative flex h-10 w-10 items-center justify-center rounded-xl text-muted-foreground hover:bg-secondary hover:text-foreground"
-          aria-label="Notificações"
-        >
-          <Bell className="h-5 w-5" />
-        </button>
+        <NotificationBell />
 
         <div className="flex items-center gap-2 border-l border-border pl-2 sm:pl-3">
           <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-[#00d4aa] to-[#67e8f9] text-[10px] font-bold text-[#0a0e17]">
