@@ -8,6 +8,7 @@ const qrcode = require('qrcode-terminal');
 const path = require('path');
 const fs = require('fs');
 const logger = require('../utils/logger');
+const { notifyWhatsAppDisconnected, clearDisconnectDebounce } = require('./waDisconnectAlert');
 const pino = require('pino');
 const { isBlocked } = require('./blacklistService');
 const { processGroupMessage } = require('./groupMonitor');
@@ -103,6 +104,7 @@ async function connectCompany(companyId, onMessage) {
       session.qr = null;
       if (global.currentQRCompanyId === id) global.currentQR = null;
       session.reconnectAttempts = 0;
+      clearDisconnectDebounce(id);
       logger.info(`[WA][company=${id}] WhatsApp conectado`);
     }
 
@@ -124,11 +126,18 @@ async function connectCompany(companyId, onMessage) {
             fs.unlinkSync(path.join(authDir, f));
           }
         } catch (_) {}
+        notifyWhatsAppDisconnected(id, 'logged_out').catch(() => {});
         return;
       }
 
+      // Alerta na queda (debounce evita spam durante tentativas de reconnect)
+      notifyWhatsAppDisconnected(id, replaced ? 'session_replaced' : 'connection_close').catch(
+        () => {}
+      );
+
       if (session.reconnectAttempts >= MAX_RECONNECT) {
         logger.error(`[WA][company=${id}] Limite de reconexao atingido`);
+        notifyWhatsAppDisconnected(id, 'max_reconnect').catch(() => {});
         return;
       }
 

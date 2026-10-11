@@ -179,6 +179,12 @@ const { runMigrations } = require('./models/migrate');
         app.listen(PORT, () => {
             logger.info(`Servidor rodando em http://0.0.0.0:${PORT} v1.6.0 mode=${useQueue ? 'queue' : 'inline'}`);
             logger.info('Via Nginx: http://localhost/');
+            try {
+                const { startTaskReminderCron } = require('./services/taskReminderService');
+                startTaskReminderCron();
+            } catch (e) {
+                logger.warn('[boot] task reminder: ' + e.message);
+            }
         });
     } catch (err) {
         logger.error('[boot] FALHA nas migrations. API nao vai subir.');
