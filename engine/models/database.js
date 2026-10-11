@@ -13,7 +13,9 @@ const pool = new Pool({
   ssl: isRemote ? { rejectUnauthorized: false } : false,
   max: 20,
   idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 5000,
+  // Correcao: 5s era curto demais no Docker Windows (cold connection).
+  // 15s da margem pra o pool reabrir conexao sem derrubar o request.
+  connectionTimeoutMillis: 15000,
 });
 
 pool.on('connect', () => {
@@ -21,7 +23,7 @@ pool.on('connect', () => {
 });
 
 pool.on('error', (err) => {
-  logger.error('Erro no PostgreSQL:', err.message);
+  logger.error('Erro no PostgreSQL: ' + err.message);
 });
 
 const query = (text, params) => pool.query(text, params);

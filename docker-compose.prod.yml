@@ -41,5 +41,5 @@ services:
     image: ghcr.io/lopesti/jarvispronto/simulator:${IMAGE_TAG:-main}
     build: !reset null
 
-  # nginx, postgres, redis, certbot, n8n já são só `image:` no compose base
+  # nginx, postgres, redis e certbot já são só `image:` no compose base
   # — não precisam ser sobrescritos aqui.
