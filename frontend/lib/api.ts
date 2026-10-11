@@ -395,3 +395,135 @@ export function isSuperadmin(): boolean {
   const user = getCurrentUser();
   return user?.is_superadmin === true;
 }
+// ─── SaaS / Billing ───────────────────────────────────────
+export type PlanLimits = {
+  conversations?: number;
+  users?: number;
+  whatsapp_numbers?: number;
+  produtos?: number;
+  history_days?: number;
+};
+
+export type UsageSnapshot = {
+  subscription: {
+    status: string;
+    planCode: string;
+    planName: string;
+    billingCycle: string;
+    trialEndsAt?: string;
+    currentPeriodEnd?: string;
+    cancelAtPeriodEnd?: boolean;
+    priceMonthly?: number;
+    features?: Record<string, unknown>;
+  } | null;
+  usage: {
+    conversations?: number;
+    messages_sent?: number;
+    users_count?: number;
+    whatsapp_numbers?: number;
+    produtos_count?: number;
+    year_month?: string;
+  };
+  limits: PlanLimits;
+  checks: Record<
+    string,
+    {
+      allowed: boolean;
+      used: number;
+      limit: number;
+      remaining: number;
+      planCode?: string;
+      reason?: string | null;
+    }
+  >;
+};
+
+export async function getPlans() {
+  const { data } = await api.get("/api/plans");
+  return data.plans as Array<{
+    id: number;
+    code: string;
+    name: string;
+    price_monthly: number;
+    price_yearly: number;
+    limits: PlanLimits;
+    features: Record<string, unknown>;
+  }>;
+}
+
+export async function getBillingSubscription() {
+  const { data } = await api.get("/api/billing/subscription");
+  return data as UsageSnapshot;
+}
+
+export async function getBillingUsage() {
+  const { data } = await api.get("/api/billing/usage");
+  return data;
+}
+
+export async function subscribePlan(planCode: string, billingCycle: "monthly" | "yearly" = "monthly") {
+  const { data } = await api.post("/api/billing/subscribe", { planCode, billingCycle });
+  return data;
+}
+
+export async function cancelSubscription() {
+  const { data } = await api.post("/api/billing/cancel");
+  return data;
+}
+
+// ─── CRM ──────────────────────────────────────────────────
+export async function updateLeadCrm(
+  phone: string,
+  payload: {
+    deal_value?: number;
+    lead_source?: string;
+    tags?: string[];
+    notes?: string;
+    probability?: number;
+    current_step?: string;
+  }
+) {
+  const { data } = await api.patch(`/api/crm/leads/${encodeURIComponent(phone)}`, payload);
+  return data;
+}
+
+export async function getLeadNotes(phone: string) {
+  const { data } = await api.get(`/api/crm/leads/${encodeURIComponent(phone)}/notes`);
+  return data as Array<{ id: number; body: string; user_name?: string; created_at: string }>;
+}
+
+export async function addLeadNote(phone: string, body: string) {
+  const { data } = await api.post(`/api/crm/leads/${encodeURIComponent(phone)}/notes`, { body });
+  return data;
+}
+
+export async function getAutomations() {
+  const { data } = await api.get("/api/crm/automations");
+  return data as Array<{
+    id: number;
+    name: string;
+    enabled: boolean;
+    trigger_type: string;
+    action_type: string;
+  }>;
+}
+
+export async function createAutomation(payload: {
+  name: string;
+  trigger_type: string;
+  action_type: string;
+  trigger_config?: Record<string, unknown>;
+  action_config?: Record<string, unknown>;
+  enabled?: boolean;
+}) {
+  const { data } = await api.post("/api/crm/automations", payload);
+  return data;
+}
+
+export async function getFunnelAnalytics() {
+  const { data } = await api.get("/api/crm/analytics/funnel");
+  return data as {
+    total: number;
+    steps: Array<{ step: string; total: number; avg_score: number; pipeline_value: number }>;
+  };
+}

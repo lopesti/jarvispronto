@@ -109,6 +109,10 @@ app.use('/api/whatsapp', authMiddleware, require('./routes/whatsapp'));
 app.use('/api/support', authMiddleware, require('./routes/support'));
 app.use('/api/admin/support', authMiddleware, requireSuperadmin, require('./routes/adminSupport'));
 
+// ─── SaaS: planos, assinatura e uso ───
+app.use('/api', require('./routes/billing'));
+app.use('/api/crm', require('./routes/crm'));
+
 app.use('/internal', require('./routes/internal'));
 
 // ═══════════════════════════════════════════════════════════

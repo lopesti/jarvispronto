@@ -145,7 +145,12 @@ export default function ConversationsPage() {
         subtitle="Inbox de vendas - funil + score + handoff"
       />
       <div className="flex flex-1 overflow-hidden">
-        <div className="flex w-80 flex-col border-r border-border">
+        <div
+          className={
+            "flex w-full flex-col border-r border-border md:w-80 md:max-w-[20rem] md:shrink-0 " +
+            (selectedPhone ? "hidden md:flex" : "flex")
+          }
+        >
           <div className="flex items-center gap-1 border-b border-border p-2">
             <Filter className="ml-1 h-3.5 w-3.5 text-muted-foreground" />
             {filters.map((f) => (
@@ -270,10 +275,23 @@ export default function ConversationsPage() {
           </div>
         </div>
 
-        <div className="flex flex-1 flex-col">
+        <div
+          className={
+            "flex min-w-0 flex-1 flex-col " +
+            (selectedPhone ? "flex" : "hidden md:flex")
+          }
+        >
           {selectedPhone && detail ? (
             <>
-              <div className="flex flex-wrap items-center gap-3 border-b border-border px-4 py-3">
+              <div className="flex flex-wrap items-center gap-2 border-b border-border px-3 py-3 sm:gap-3 sm:px-4">
+                <button
+                  type="button"
+                  className="flex h-9 w-9 items-center justify-center rounded-xl text-muted-foreground hover:bg-secondary md:hidden"
+                  onClick={() => setSelectedPhone(null)}
+                  aria-label="Voltar"
+                >
+                  ←
+                </button>
                 <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/20 text-xs font-bold text-primary">
                   {displayPhone(selectedPhone).slice(-2)}
                 </div>
@@ -359,7 +377,7 @@ export default function ConversationsPage() {
                   <div
                     key={m.id ?? i}
                     className={cn(
-                      "max-w-[75%] rounded-2xl px-4 py-2.5 text-sm",
+                      "max-w-[88%] sm:max-w-[75%] rounded-2xl px-3 py-2 sm:px-4 sm:py-2.5 text-sm",
                       m.role === "assistant" || m.direction === "outgoing"
                         ? "rounded-bl-sm bg-primary/20"
                         : "ml-auto rounded-br-sm bg-secondary"

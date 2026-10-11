@@ -53,7 +53,7 @@ export default function TicketPage() {
     return (
       <>
         <Header title="Chamado" />
-        <div className="flex-1 overflow-y-auto p-6">
+        <div className="page-scroll page-pad">
           <div className="mx-auto max-w-3xl">
             <div className="h-96 animate-pulse rounded-xl border border-border bg-card" />
           </div>

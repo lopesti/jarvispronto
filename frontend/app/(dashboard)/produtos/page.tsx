@@ -93,8 +93,8 @@ export default function ProdutosPage() {
     <>
       <Header title="Produtos" subtitle="Catalogo de produtos do tenant" />
 
-      <div className="flex-1 overflow-y-auto p-6">
-        {/* Barra de ações */}
+      <div className="page-scroll page-pad">
+        {/* Barra de acoes */}
         <div className="mb-4 flex items-center justify-between">
           <div className="text-sm text-muted-foreground">
             {isLoading
@@ -141,64 +141,66 @@ export default function ProdutosPage() {
         {/* Tabela */}
         {!isLoading && list.length > 0 && (
           <div className="overflow-hidden rounded-xl border border-border">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-border bg-card text-left text-muted-foreground">
-                  <th className="px-4 py-3 font-medium">ID</th>
-                  <th className="px-4 py-3 font-medium">Nome</th>
-                  <th className="px-4 py-3 font-medium">Preco</th>
-                  <th className="px-4 py-3 font-medium">Estoque</th>
-                  <th className="px-4 py-3 font-medium text-right">Acoes</th>
-                </tr>
-              </thead>
-              <tbody>
-                {list.map((p) => (
-                  <tr
-                    key={p.id}
-                    className="border-b border-border hover:bg-secondary/30 transition-colors"
-                  >
-                    <td className="px-4 py-3 text-muted-foreground">
-                      #{p.id}
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="font-medium">{p.nome}</div>
-                      {p.descricao && (
-                        <div className="text-xs text-muted-foreground line-clamp-1">
-                          {p.descricao}
-                        </div>
-                      )}
-                    </td>
-                    <td className="px-4 py-3">
-                      R$ {Number(p.preco).toFixed(2)}
-                    </td>
-                    <td className="px-4 py-3">{p.estoque ?? 0}</td>
-                    <td className="px-4 py-3">
-                      <div className="flex justify-end gap-1">
-                        <button
-                          type="button"
-                          onClick={() => startEdit(p)}
-                          className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs hover:bg-secondary"
-                        >
-                          <Pencil className="h-3 w-3" />
-                          Editar
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (confirm(`Excluir produto "${p.nome}"?`))
-                              delMut.mutate(p.id);
-                          }}
-                          className="inline-flex items-center gap-1 rounded-md border border-red-500/40 px-2 py-1 text-xs text-red-400 hover:bg-red-500/10"
-                        >
-                          <Trash2 className="h-3 w-3" />
-                          Excluir
-                        </button>
-                      </div>
-                    </td>
+            <div className="w-full overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border bg-card text-left text-muted-foreground">
+                    <th className="px-4 py-3 font-medium">ID</th>
+                    <th className="px-4 py-3 font-medium">Nome</th>
+                    <th className="px-4 py-3 font-medium">Preco</th>
+                    <th className="px-4 py-3 font-medium">Estoque</th>
+                    <th className="px-4 py-3 font-medium text-right">Acoes</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {list.map((p) => (
+                    <tr
+                      key={p.id}
+                      className="border-b border-border hover:bg-secondary/30 transition-colors"
+                    >
+                      <td className="px-4 py-3 text-muted-foreground">
+                        #{p.id}
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="font-medium">{p.nome}</div>
+                        {p.descricao && (
+                          <div className="text-xs text-muted-foreground line-clamp-1">
+                            {p.descricao}
+                          </div>
+                        )}
+                      </td>
+                      <td className="px-4 py-3">
+                        R$ {Number(p.preco).toFixed(2)}
+                      </td>
+                      <td className="px-4 py-3">{p.estoque ?? 0}</td>
+                      <td className="px-4 py-3">
+                        <div className="flex justify-end gap-1">
+                          <button
+                            type="button"
+                            onClick={() => startEdit(p)}
+                            className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs hover:bg-secondary"
+                          >
+                            <Pencil className="h-3 w-3" />
+                            Editar
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (confirm(`Excluir produto "${p.nome}"?`))
+                                delMut.mutate(p.id);
+                            }}
+                            className="inline-flex items-center gap-1 rounded-md border border-red-500/40 px-2 py-1 text-xs text-red-400 hover:bg-red-500/10"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                            Excluir
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
       </div>
@@ -210,7 +212,7 @@ export default function ProdutosPage() {
           onClick={closeForm}
         >
           <div
-            className="w-full max-w-lg rounded-xl border border-border bg-card p-6 shadow-2xl"
+            className="w-full max-w-lg rounded-xl border border-border bg-card card-pad shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="mb-5 flex items-center justify-between">

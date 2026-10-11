@@ -57,7 +57,7 @@ export default function OverviewPage() {
         subtitle="Cockpit de vendas · funil, score e handoff"
       />
 
-      <div className="flex-1 overflow-y-auto p-6">
+      <div className="page-scroll page-pad">
         {/* Banner WhatsApp desconectado */}
         {!waConnected && (
           <div className="mb-6 flex flex-col gap-3 rounded-xl border border-border bg-card p-5 sm:flex-row sm:items-center">
@@ -81,7 +81,7 @@ export default function OverviewPage() {
 
         {/* KPIs */}
         {isLoading ? (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          <div className="grid grid-cols-1 gap-3 sm:gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {[1, 2, 3, 4].map((i) => (
               <div
                 key={i}
@@ -90,7 +90,7 @@ export default function OverviewPage() {
             ))}
           </div>
         ) : (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          <div className="grid grid-cols-1 gap-3 sm:gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <KpiCard
               icon={MessageSquare}
               label="Conversas"

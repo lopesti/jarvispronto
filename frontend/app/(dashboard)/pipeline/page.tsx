@@ -144,11 +144,11 @@ export default function PipelinePage() {
 
         {/* Kanban */}
         {!isLoading && totalLeads > 0 && (
-          <div className="flex min-w-max gap-4">
+          <div className="flex min-w-max gap-3 sm:gap-4 pb-4">
             {byStep.map((col) => {
               const colors = STEP_COLORS[col.id] || STEP_COLORS.inicio;
               return (
-                <div key={col.id} className="w-64 shrink-0">
+                <div key={col.id} className="w-[16.5rem] sm:w-64 shrink-0">
                   <div className="mb-3 flex items-center justify-between">
                     <span className="text-sm font-medium">{col.label}</span>
                     <span
@@ -159,7 +159,7 @@ export default function PipelinePage() {
                   </div>
 
                   <div
-                    className={`min-h-[420px] space-y-2 rounded-xl border border-dashed border-border border-t-2 ${colors.border} bg-muted/30 p-2`}
+                    className={`min-h-[min(420px,60vh)] space-y-2 rounded-xl border border-dashed border-border border-t-2 ${colors.border} bg-muted/30 p-2`}
                   >
                     {col.items.map((lead) => (
                       <div

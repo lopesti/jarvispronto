@@ -139,7 +139,7 @@ export default function PlanosPage() {
 
       {/* Grid de planos */}
       <section className="mx-auto max-w-6xl px-4 pb-20">
-        <div className="grid gap-6 md:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 sm:gap-6 md:grid-cols-3">
           {plans.map((plan) => (
             <div
               key={plan.id}
