@@ -196,4 +196,291 @@ router.get('/analytics/funnel', auth, async (req, res) => {
   }
 });
 
+
+// ─── Tasks / follow-up ───────────────────────────────────
+router.get('/tasks', auth, async (req, res) => {
+  try {
+    const companyId = companyIdOf(req);
+    const status = req.query.status || 'open';
+    const phone = req.query.phone;
+    const params = [companyId];
+    let sql = `SELECT t.*, u.name AS assignee_name
+               FROM lead_tasks t
+               LEFT JOIN users u ON u.id = t.assigned_to
+               WHERE t.company_id = $1`;
+    if (status && status !== 'all') {
+      params.push(status);
+      sql += ` AND t.status = $${params.length}`;
+    }
+    if (phone) {
+      params.push(phone);
+      sql += ` AND t.phone = $${params.length}`;
+    }
+    sql += ` ORDER BY
+      CASE WHEN t.status = 'open' THEN 0 ELSE 1 END,
+      t.due_at NULLS LAST,
+      t.created_at DESC
+      LIMIT 200`;
+    const { rows } = await query(sql, params);
+    res.json(rows);
+  } catch (err) {
+    logger.error(`[crm] list tasks: ${err.message}`);
+    res.status(500).json({ error: 'Erro ao listar tarefas' });
+  }
+});
+
+router.post('/tasks', auth, async (req, res) => {
+  try {
+    const companyId = companyIdOf(req);
+    const { phone, title, description, due_at, priority, assigned_to } = req.body || {};
+    if (!phone || !title || !String(title).trim()) {
+      return res.status(400).json({ error: 'phone e title obrigatórios' });
+    }
+    const { rows } = await query(
+      `INSERT INTO lead_tasks (
+          company_id, phone, title, description, due_at, priority, assigned_to, created_by
+       ) VALUES ($1, $2, $3, $4, $5, COALESCE($6, 'medium'), $7, $8)
+       RETURNING *`,
+      [
+        companyId,
+        phone,
+        String(title).trim(),
+        description || null,
+        due_at || null,
+        priority || 'medium',
+        assigned_to || req.user?.id || null,
+        req.user?.id || null,
+      ]
+    );
+    res.status(201).json(rows[0]);
+  } catch (err) {
+    logger.error(`[crm] create task: ${err.message}`);
+    res.status(500).json({ error: 'Erro ao criar tarefa' });
+  }
+});
+
+router.patch('/tasks/:id', auth, async (req, res) => {
+  try {
+    const companyId = companyIdOf(req);
+    const id = Number(req.params.id);
+    const { title, description, due_at, priority, status, assigned_to } = req.body || {};
+    const { rows } = await query(
+      `UPDATE lead_tasks SET
+         title = COALESCE($3, title),
+         description = COALESCE($4, description),
+         due_at = COALESCE($5, due_at),
+         priority = COALESCE($6, priority),
+         status = COALESCE($7, status),
+         assigned_to = COALESCE($8, assigned_to),
+         completed_at = CASE
+           WHEN $7 = 'done' THEN NOW()
+           WHEN $7 = 'open' THEN NULL
+           ELSE completed_at
+         END,
+         updated_at = NOW()
+       WHERE id = $1 AND company_id = $2
+       RETURNING *`,
+      [
+        id,
+        companyId,
+        title ?? null,
+        description ?? null,
+        due_at ?? null,
+        priority ?? null,
+        status ?? null,
+        assigned_to ?? null,
+      ]
+    );
+    if (!rows[0]) return res.status(404).json({ error: 'Tarefa não encontrada' });
+    res.json(rows[0]);
+  } catch (err) {
+    logger.error(`[crm] patch task: ${err.message}`);
+    res.status(500).json({ error: 'Erro ao atualizar tarefa' });
+  }
+});
+
+router.delete('/tasks/:id', auth, async (req, res) => {
+  try {
+    const companyId = companyIdOf(req);
+    const id = Number(req.params.id);
+    const r = await query(
+      `DELETE FROM lead_tasks WHERE id = $1 AND company_id = $2 RETURNING id`,
+      [id, companyId]
+    );
+    if (!r.rows[0]) return res.status(404).json({ error: 'Tarefa não encontrada' });
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Erro ao excluir tarefa' });
+  }
+});
+
+
+
+// ─── Notifications ───────────────────────────────────────
+router.get('/notifications', auth, async (req, res) => {
+  try {
+    const companyId = companyIdOf(req);
+    const unreadOnly = req.query.unread === '1' || req.query.unread === 'true';
+    const params = [companyId];
+    let sql = `SELECT * FROM notifications WHERE company_id = $1`;
+    if (unreadOnly) sql += ` AND read_at IS NULL`;
+    // se user_id preenchido, mostra gerais da empresa + do usuário
+    sql += ` AND (user_id IS NULL OR user_id = $2)`;
+    params.push(req.user?.id || 0);
+    sql += ` ORDER BY created_at DESC LIMIT 50`;
+    const { rows } = await query(sql, params);
+    res.json(rows);
+  } catch (err) {
+    logger.error(`[crm] notifications: ${err.message}`);
+    res.status(500).json({ error: 'Erro ao listar notificações' });
+  }
+});
+
+router.post('/notifications/read', auth, async (req, res) => {
+  try {
+    const companyId = companyIdOf(req);
+    const ids = Array.isArray(req.body?.ids) ? req.body.ids.map(Number).filter(Boolean) : [];
+    if (ids.length) {
+      await query(
+        `UPDATE notifications SET read_at = NOW()
+         WHERE company_id = $1 AND id = ANY($2::int[])`,
+        [companyId, ids]
+      );
+    } else {
+      await query(
+        `UPDATE notifications SET read_at = NOW()
+         WHERE company_id = $1 AND read_at IS NULL
+           AND (user_id IS NULL OR user_id = $2)`,
+        [companyId, req.user?.id || 0]
+      );
+    }
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Erro ao marcar lidas' });
+  }
+});
+
+router.post('/tasks/check-overdue', auth, async (req, res) => {
+  try {
+    const { processOverdueTasks } = require('../services/taskReminderService');
+    const result = await processOverdueTasks();
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+
+
+// ─── Web Push ────────────────────────────────────────────
+router.get('/push/vapid-public-key', auth, async (_req, res) => {
+  try {
+    const pushService = require('../services/pushService');
+    res.json({ publicKey: pushService.getPublicKey() });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/push/subscribe', auth, async (req, res) => {
+  try {
+    const pushService = require('../services/pushService');
+    const companyId = companyIdOf(req);
+    const subscription = req.body?.subscription || req.body;
+    await pushService.saveSubscription({
+      companyId,
+      userId: req.user?.id || null,
+      subscription,
+      userAgent: req.headers['user-agent'],
+    });
+    res.json({ ok: true });
+  } catch (err) {
+    logger.error(`[push] subscribe: ${err.message}`);
+    res.status(400).json({ error: err.message || 'Falha ao registrar push' });
+  }
+});
+
+router.post('/push/unsubscribe', auth, async (req, res) => {
+  try {
+    const pushService = require('../services/pushService');
+    const endpoint = req.body?.endpoint;
+    if (!endpoint) return res.status(400).json({ error: 'endpoint obrigatório' });
+    await pushService.removeSubscription(endpoint);
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/push/test', auth, async (req, res) => {
+  try {
+    const pushService = require('../services/pushService');
+    const companyId = companyIdOf(req);
+    const result = await pushService.sendPushToCompany(companyId, {
+      title: 'JARVIS',
+      body: req.body?.message || 'Notificação de teste do painel',
+      url: '/overview',
+      tag: 'jarvis-test',
+      type: 'test',
+    });
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+
+
+// ─── SSE: notificações em tempo real ─────────────────────
+// EventSource não envia Authorization header → aceita ?token=
+router.get('/notifications/stream', async (req, res) => {
+  try {
+    const jwt = require('jsonwebtoken');
+    const token =
+      req.query.token ||
+      (req.headers.authorization || '').replace(/^Bearer\s+/i, '');
+    if (!token) {
+      return res.status(401).json({ error: 'token obrigatório' });
+    }
+    let payload;
+    try {
+      payload = jwt.verify(token, process.env.JWT_SECRET || 'jarvis-dev-secret');
+    } catch {
+      return res.status(401).json({ error: 'token inválido' });
+    }
+    const companyId = Number(payload.companyId || payload.company_id);
+    if (!companyId) {
+      return res.status(403).json({ error: 'sem empresa' });
+    }
+
+    const { addStream, removeStream } = require('../services/notificationHub');
+
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache, no-transform');
+    res.setHeader('Connection', 'keep-alive');
+    res.setHeader('X-Accel-Buffering', 'no');
+    if (typeof res.flushHeaders === 'function') res.flushHeaders();
+
+    res.write(`event: connected\ndata: ${JSON.stringify({ companyId, at: new Date().toISOString() })}\n\n`);
+    addStream(companyId, res);
+
+    const heartbeat = setInterval(() => {
+      try {
+        res.write(`: ping ${Date.now()}\n\n`);
+      } catch (_) {
+        clearInterval(heartbeat);
+      }
+    }, 25000);
+
+    req.on('close', () => {
+      clearInterval(heartbeat);
+      removeStream(companyId, res);
+    });
+  } catch (err) {
+    logger.error(`[crm] sse: ${err.message}`);
+    if (!res.headersSent) res.status(500).json({ error: 'SSE falhou' });
+  }
+});
+
+
 module.exports = router;

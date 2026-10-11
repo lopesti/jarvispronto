@@ -79,17 +79,44 @@ router.put('/:id/config', async (req, res) => {
       patch[k] = v;
     }
 
-    if (Object.keys(patch).length === 0) {
+    // Nome da empresa (coluna, não config)
+    const companyName =
+      typeof body.name === 'string' && body.name.trim().length >= 2
+        ? body.name.trim()
+        : null;
+    delete patch.name;
+
+    if (Object.keys(patch).length === 0 && !companyName) {
       return res.status(400).json({ error: 'Nada para atualizar' });
     }
 
-    const { rows } = await db.query(
-      `UPDATE companies
-          SET config = COALESCE(config, '{}'::jsonb) || $1::jsonb
-        WHERE id = $2
-        RETURNING id, name, config`,
-      [JSON.stringify(patch), id]
-    );
+    let rows;
+    if (companyName && Object.keys(patch).length) {
+      const r = await db.query(
+        `UPDATE companies
+            SET name = $3,
+                config = COALESCE(config, '{}'::jsonb) || $1::jsonb
+          WHERE id = $2
+          RETURNING id, name, config`,
+        [JSON.stringify(patch), id, companyName]
+      );
+      rows = r.rows;
+    } else if (companyName) {
+      const r = await db.query(
+        `UPDATE companies SET name = $2 WHERE id = $1 RETURNING id, name, config`,
+        [id, companyName]
+      );
+      rows = r.rows;
+    } else {
+      const r = await db.query(
+        `UPDATE companies
+            SET config = COALESCE(config, '{}'::jsonb) || $1::jsonb
+          WHERE id = $2
+          RETURNING id, name, config`,
+        [JSON.stringify(patch), id]
+      );
+      rows = r.rows;
+    }
     if (!rows[0]) return res.status(404).json({ error: 'Empresa nao encontrada' });
 
     invalidateSystemPromptCache(id);

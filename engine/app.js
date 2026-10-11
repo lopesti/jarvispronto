@@ -108,6 +108,8 @@ app.use('/api/whatsapp', authMiddleware, require('./routes/whatsapp'));
 // ─── Suporte (empresa) e Admin (superadmin) — FASE 3.1 ───
 app.use('/api/support', authMiddleware, require('./routes/support'));
 app.use('/api/admin/support', authMiddleware, requireSuperadmin, require('./routes/adminSupport'));
+app.use('/api/admin/companies', authMiddleware, requireSuperadmin, require('./routes/adminCompanies'));
+app.use('/api/admin/users', authMiddleware, requireSuperadmin, require('./routes/adminUsers'));
 
 // ─── SaaS: planos, assinatura e uso ───
 app.use('/api', require('./routes/billing'));
@@ -179,6 +181,12 @@ const { runMigrations } = require('./models/migrate');
         app.listen(PORT, () => {
             logger.info(`Servidor rodando em http://0.0.0.0:${PORT} v1.6.0 mode=${useQueue ? 'queue' : 'inline'}`);
             logger.info('Via Nginx: http://localhost/');
+            try {
+                const { startTaskReminderCron } = require('./services/taskReminderService');
+                startTaskReminderCron();
+            } catch (e) {
+                logger.warn('[boot] task reminder: ' + e.message);
+            }
         });
     } catch (err) {
         logger.error('[boot] FALHA nas migrations. API nao vai subir.');
@@ -186,6 +194,7 @@ const { runMigrations } = require('./models/migrate');
         process.exit(1);
     }
 })();
+
 process.on('SIGINT', async () => {
     logger.info('Desligando...');
     if (!useQueue) {

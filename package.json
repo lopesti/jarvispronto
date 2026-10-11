@@ -1,8 +1,8 @@
 {
   "name": "jarvispronto",
-  "version": "1.5.1",
+  "version": "1.15.0",
   "license": "ISC",
-  "description": "JARVIS Comercial — Escova Alisadora 3 em 1 · WhatsApp · IA · Nginx",
+  "description": "JARVIS Comercial \u2014 Escova Alisadora 3 em 1 \u00b7 WhatsApp \u00b7 IA \u00b7 Nginx",
   "main": "engine/app.js",
   "scripts": {
     "start": "node engine/app.js",
@@ -36,7 +36,8 @@
     "pg": "^8.21.0",
     "pino": "^9.6.0",
     "qrcode": "^1.5.4",
-    "qrcode-terminal": "^0.12.0"
+    "qrcode-terminal": "^0.12.0",
+    "web-push": "^3.6.7"
   },
   "devDependencies": {
     "jest": "^29.7.0",
@@ -44,8 +45,12 @@
   },
   "jest": {
     "testEnvironment": "node",
-    "testMatch": ["**/tests/**/*.test.js"],
-    "setupFiles": ["<rootDir>/tests/setup/env.js"],
+    "testMatch": [
+      "**/tests/**/*.test.js"
+    ],
+    "setupFiles": [
+      "<rootDir>/tests/setup/env.js"
+    ],
     "collectCoverageFrom": [
       "engine/utils/**/*.js",
       "engine/services/authService.js",
