@@ -3,6 +3,9 @@
  *
  * Regras por tenant vem de companies.config->'funnelRules' (JSONB).
  * Fallback: as regras default abaixo (comportamento global anterior).
+ *
+ * F-04 (corrigido): normaliza acentos (NFD) antes de comparar keywords.
+ * Sem isso, "não quero", "preço", "cartão" nunca casavam.
  */
 
 const { pool } = require('../models/database');
@@ -29,6 +32,7 @@ const STEP_LABELS = {
 };
 
 // Default global (usado se o tenant nao configurou)
+// Keywords SEM acento — normalizeText() aplica NFD no texto e nas keywords
 const DEFAULT_RULES = {
   stepKeywords: {
     perdido:      ['nao quero', 'sem interesse', 'cancela', 'desisto'],
@@ -58,9 +62,23 @@ const CLASSIFY_ORDER = [
   'interesse',
 ];
 
-// ─────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────
+//  F-04: normalizacao de texto (remove acentos)
+// ─────────────────────────────────────────────────────────────────
+
+function normalizeText(s) {
+  return String(s || '')
+    .normalize('NFD')                     // separa letra do acento
+    .replace(/[\u0300-\u036f]/g, '')      // remove os diacriticos
+    .toLowerCase()
+    .replace(/[?!.,;]/g, '')              // remove pontuacao simples
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+// ─────────────────────────────────────────────────────────────────
 //  Cache de regras por tenant (TTL 60s — mesmo padrao do BUG-009)
-// ─────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────
 
 const _rulesCache = new Map(); // companyId -> { rules, expiresAt }
 const RULES_TTL_MS = 60 * 1000;
@@ -102,12 +120,13 @@ function invalidateFunnelCache(companyId) {
   _rulesCache.delete(Number(companyId));
 }
 
-// ─────────────────────────────────────────────────────────
-//  Classificacao e scoring (agora com tenant)
-// ─────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────
+//  Classificacao e scoring (com normalizacao de acentos)
+// ─────────────────────────────────────────────────────────────────
 
 function classifyStep(text, current = 'inicio', rules = DEFAULT_RULES) {
-  const t = (text || '').toLowerCase();
+  // F-04: normaliza o texto (remove acentos, lowercase, limpa pontuacao)
+  const t = normalizeText(text);
   if (!t) return current;
 
   const stepKeywords = rules.stepKeywords || DEFAULT_RULES.stepKeywords;
@@ -115,14 +134,14 @@ function classifyStep(text, current = 'inicio', rules = DEFAULT_RULES) {
   // 1) Regras de "forca" — primeira que casar vence
   for (const step of CLASSIFY_ORDER) {
     const kws = stepKeywords[step] || [];
-    if (kws.some((kw) => t.includes(String(kw).toLowerCase()))) {
+    if (kws.some((kw) => t.includes(normalizeText(kw)))) {
       return step;
     }
   }
 
   // 2) Regra especial: saudacao so promove se ainda estamos no inicio
   const greetKws = stepKeywords.qualificacao || [];
-  if (current === 'inicio' && greetKws.some((kw) => t.includes(String(kw).toLowerCase()))) {
+  if (current === 'inicio' && greetKws.some((kw) => t.includes(normalizeText(kw)))) {
     return 'qualificacao';
   }
 
@@ -147,4 +166,5 @@ module.exports = {
   invalidateFunnelCache,
   classifyStep,
   scoreForStep,
+  normalizeText,
 };

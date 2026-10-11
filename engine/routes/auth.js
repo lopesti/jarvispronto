@@ -21,7 +21,7 @@ function publicUser(row) {
     email: row.email,
     role: row.role || 'user',
     companyId: row.company_id || row.companyId || null,
-    is_superadmin: row.is_superadmin === true,  // ← NOVO
+    is_superadmin: row.is_superadmin === true,
     created_at: row.created_at,
   };
 }
@@ -92,13 +92,15 @@ router.post('/register', async (req, res) => {
     const user = result.rows[0];
     user.company_id = company.id;
     const accessToken = signAccessToken(user);
-    const refreshToken = await createRefreshToken(user.id);
+
+    // F-01: createRefreshToken devolve { raw, familyId } — extrai raw
+    const refreshOut = await createRefreshToken(user.id);
 
     res.status(201).json({
       message: 'Usuario criado com sucesso',
       token: accessToken,
       accessToken,
-      refreshToken,
+      refreshToken: refreshOut.raw,
       expiresIn: process.env.JWT_ACCESS_EXPIRES || '15m',
       user: publicUser(user),
     });
@@ -132,12 +134,14 @@ router.post('/login', async (req, res) => {
     }
 
     const accessToken = signAccessToken(user);
-    const refreshToken = await createRefreshToken(user.id);
+
+    // F-01: createRefreshToken devolve { raw, familyId } — extrai raw
+    const refreshOut = await createRefreshToken(user.id);
 
     res.json({
       token: accessToken,
       accessToken,
-      refreshToken,
+      refreshToken: refreshOut.raw,
       expiresIn: process.env.JWT_ACCESS_EXPIRES || '15m',
       user: publicUser(user),
     });
@@ -153,6 +157,7 @@ router.post('/refresh', async (req, res) => {
     if (!refreshToken) {
       return res.status(400).json({ error: 'refreshToken obrigatorio' });
     }
+    // rotateRefreshToken ja devolve { accessToken, refreshToken (string), user }
     const out = await rotateRefreshToken(refreshToken);
     res.json({
       token: out.accessToken,
