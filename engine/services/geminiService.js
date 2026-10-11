@@ -18,10 +18,11 @@ const groq = process.env.GROQ_API_KEY
   ? new Groq({ apiKey: process.env.GROQ_API_KEY })
   : null;
 
-// ═══════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════════════
 //  Cache key com tenant (BUG-008 corrigido)
-//  Sem histórico na chave: input igual → cache hit
-// ═══════════════════════════════════════════════════════════
+//  F-02 (corrigido): NAO cacheia mensagens curtas/ambiguas (sim, nao, quanto...)
+//  porque a mesma palavra em contextos diferentes exige respostas diferentes.
+// ═══════════════════════════════════════════════════════════════════════════
 
 function normalizeInput(text) {
   return String(text || '')
@@ -35,7 +36,8 @@ function normalizeInput(text) {
 
 /**
  * Chave de cache isolada por tenant.
- * NÃO inclui histórico — se a pergunta é a mesma, resposta é a mesma.
+ * NAO inclui historico — se a pergunta e a mesma, resposta e a mesma.
+ * Para mensagens curtas/ambiguas, o cache e ignorado (ver isAmbiguousShortInput).
  */
 function buildCacheKey(userInput, companyId) {
   const cid = Number(companyId) || 0;
@@ -48,9 +50,21 @@ function buildCacheKey(userInput, companyId) {
   return `ia:${cid}:${inputHash}`;
 }
 
-// ═══════════════════════════════════════════════════════════
+/**
+ * F-02: detecta mensagens curtas ou ambiguas que NAO devem ser cacheadas.
+ * Motivo: "sim", "quanto", "pode" dependem do contexto da conversa.
+ * Cachear por input puro faz leads diferentes receberem resposta de outro.
+ */
+function isAmbiguousShortInput(userInput) {
+  const t = normalizeInput(userInput);
+  if (!t) return true;
+  if (t.length < 25) return true; // qualquer msg curta
+  return /^(sim|nao|ok|pode|quanto|qual|como|quando|onde|esse|essa|isso|beleza|blz|vlw|obg|obrigado|valeu)\b/.test(t);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 //  Prompt por tenant (BUG-009)
-// ═══════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════════════
 
 const _promptCache = new Map();
 const PROMPT_TTL_MS = 60 * 1000;
@@ -103,9 +117,9 @@ function invalidateSystemPromptCache(companyId) {
   _promptCache.delete(Number(companyId));
 }
 
-// ═══════════════════════════════════════════════════════════
-//  Geração com cache isolado por tenant
-// ═══════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════════════
+//  Geracao com cache isolado por tenant (F-02: skip cache p/ msg curta)
+// ═══════════════════════════════════════════════════════════════════════════
 
 async function generateResponse(userInput, history = [], companyId) {
   const cid = Number(companyId);
@@ -116,14 +130,21 @@ async function generateResponse(userInput, history = [], companyId) {
 
   const { systemPrompt, fallbackMessage } = await getSystemPrompt(cid);
   const cacheKey = buildCacheKey(userInput, cid);
+  const skipCache = isAmbiguousShortInput(userInput);
 
-  // 1. Cache
-  const cached = await cache.get(cacheKey);
-  if (cached) {
+  // 1. Cache (so quando NAO for msg curta/ambigua)
+  if (!skipCache) {
+    const cached = await cache.get(cacheKey);
+    if (cached) {
+      logger.info(
+        `[gemini] Cache HIT company=${cid} input="${String(userInput).slice(0, 40)}"`
+      );
+      return cached;
+    }
+  } else {
     logger.info(
-      `[gemini] Cache HIT company=${cid} input="${String(userInput).slice(0, 40)}"`
+      `[gemini] Cache SKIP (msg curta/ambigua) company=${cid} input="${String(userInput).slice(0, 40)}"`
     );
-    return cached;
   }
 
   // 2. Groq
@@ -131,7 +152,9 @@ async function generateResponse(userInput, history = [], companyId) {
     if (groq) {
       logger.info(`[gemini] Groq company=${cid}...`);
       const response = await generateWithGroq(userInput, history, systemPrompt);
-      await cache.set(cacheKey, response, 3600);
+      if (!skipCache) {
+        await cache.set(cacheKey, response, 3600);
+      }
       logger.info(`[gemini] Resposta gerada pelo Groq company=${cid}`);
       return response;
     }
@@ -144,7 +167,9 @@ async function generateResponse(userInput, history = [], companyId) {
   try {
     if (!genAI) throw new Error('Gemini nao configurado');
     const response = await generateWithGemini(userInput, history, systemPrompt);
-    await cache.set(cacheKey, response, 3600);
+    if (!skipCache) {
+      await cache.set(cacheKey, response, 3600);
+    }
     logger.info(`[gemini] Resposta gerada pelo Gemini company=${cid}`);
     return response;
   } catch (err) {
@@ -154,8 +179,11 @@ async function generateResponse(userInput, history = [], companyId) {
       fallbackMessage ||
       'Desculpe, estou com problemas tecnicos. Tente novamente mais tarde.';
 
-    await cache.set(cacheKey, fb, 60);
-    logger.info(`[gemini] Fallback cacheado company=${cid} TTL=60s`);
+    // Fallback: cacheia por 60s, mas so se NAO for msg curta (evita propagar erro)
+    if (!skipCache) {
+      await cache.set(cacheKey, fb, 60);
+      logger.info(`[gemini] Fallback cacheado company=${cid} TTL=60s`);
+    }
 
     return fb;
   }
@@ -183,9 +211,9 @@ async function generateWithoutCache(userInput, history) {
   }
 }
 
-// ═══════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════════════
 //  Providers
-// ═══════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════════════
 
 async function generateWithGroq(userInput, history, systemPrompt) {
   const messages = [

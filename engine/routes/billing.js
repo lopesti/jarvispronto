@@ -51,12 +51,19 @@ router.get('/billing/usage', auth, async (req, res) => {
 /**
  * POST /api/billing/subscribe
  * Body: { planCode, billingCycle?, useCheckout? }
- * - Sem ASAAS_API_KEY: ativa plano localmente (dev)
+ * - Sem ASAAS_API_KEY: ativa plano localmente (dev) — BLOQUEADO em producao (S-02)
  * - Com Asaas: cria customer + subscription e devolve invoiceUrl / checkout
+ * - Apenas role=owner ou superadmin pode alterar assinatura (S-02)
  */
 router.post('/billing/subscribe', auth, async (req, res) => {
   try {
     const companyId = req.user.companyId || req.user.company_id;
+
+    // S-02: apenas owner ou superadmin pode alterar assinatura
+    if (req.user.role !== 'owner' && !req.user.is_superadmin) {
+      return res.status(403).json({ error: 'Apenas owner pode alterar assinatura' });
+    }
+
     const {
       planCode,
       billingCycle = 'monthly',
@@ -79,7 +86,7 @@ router.post('/billing/subscribe', auth, async (req, res) => {
         ? Number(plan.price_yearly || plan.price_monthly * 10)
         : Number(plan.price_monthly);
 
-    // ── Asaas ligado ──────────────────────────────────────
+    // ── Asaas ligado ──────────────────────────────────────────────
     if (asaas.enabled()) {
       const companyRow = await query(
         `SELECT c.id, c.name, u.email, u.name AS user_name
@@ -192,7 +199,16 @@ router.post('/billing/subscribe', auth, async (req, res) => {
       });
     }
 
-    // ── Modo local (sem Asaas) ────────────────────────────
+    // ── Modo local (sem Asaas) — BLOQUEADO em producao (S-02) ────
+    if (process.env.NODE_ENV === 'production') {
+      logger.warn(
+        `[billing] subscribe em modo local bloqueado em producao company=${companyId}`
+      );
+      return res.status(503).json({
+        error: 'Cobrança não configurada. Contate o suporte.',
+      });
+    }
+
     await query(
       `UPDATE subscriptions
        SET status = 'canceled', cancel_at_period_end = false, updated_at = NOW()
@@ -236,13 +252,19 @@ router.post('/billing/subscribe', auth, async (req, res) => {
     });
   } catch (err) {
     logger.error(`[billing] subscribe: ${err.message}`);
-    res.status(500).json({ error: err.message || 'Erro ao alterar plano' });
+    res.status(500).json({ error: 'Erro ao alterar plano' });
   }
 });
 
 router.post('/billing/cancel', auth, async (req, res) => {
   try {
     const companyId = req.user.companyId || req.user.company_id;
+
+    // S-02: apenas owner ou superadmin pode cancelar assinatura
+    if (req.user.role !== 'owner' && !req.user.is_superadmin) {
+      return res.status(403).json({ error: 'Apenas owner pode cancelar assinatura' });
+    }
+
     const sub = await planService.getCompanySubscription(companyId);
     if (!sub) return res.status(404).json({ error: 'Nenhuma assinatura ativa' });
 
@@ -325,12 +347,12 @@ router.post('/billing/webhook', async (req, res) => {
       if (found.rows[0]) companyId = found.rows[0].company_id;
     }
 
+    // S-03: SUBSCRIPTION_CREATED removido — assinatura criada != pagamento confirmado
     const paidEvents = new Set([
       'PAYMENT_RECEIVED',
       'PAYMENT_CONFIRMED',
       'PAYMENT_RECEIVED_IN_CASH',
       'CHECKOUT_PAID',
-      'SUBSCRIPTION_CREATED',
     ]);
     const overdueEvents = new Set(['PAYMENT_OVERDUE', 'PAYMENT_DELETED']);
     const cancelEvents = new Set([

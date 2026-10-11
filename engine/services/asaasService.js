@@ -8,6 +8,7 @@
  *   ASAAS_WEBHOOK_TOKEN — valida header asaas-access-token
  *   APP_PUBLIC_URL  — callbacks success/cancel
  */
+const crypto = require('crypto');
 const logger = require('../utils/logger');
 
 const BASE = (process.env.ASAAS_BASE_URL || 'https://api-sandbox.asaas.com/v3').replace(/\/$/, '');
@@ -144,13 +145,38 @@ async function createCheckout({
   return asaasFetch('/checkouts', { method: 'POST', body });
 }
 
+/**
+ * S-01: valida header asaas-access-token.
+ * - Em producao, exige ASAAS_WEBHOOK_TOKEN configurado (rejeita se vazio).
+ * - Comparacao em tempo constante para evitar timing attack.
+ */
 function validateWebhookToken(req) {
-  if (!WEBHOOK_TOKEN) return true; // dev sem token
+  if (!WEBHOOK_TOKEN) {
+    if (process.env.NODE_ENV === 'production') {
+      logger.error(
+        '[asaas] ASAAS_WEBHOOK_TOKEN nao configurado em producao — rejeitando webhook'
+      );
+      return false;
+    }
+    return true; // dev sem token
+  }
+
   const got =
     req.headers['asaas-access-token'] ||
     req.headers['Asaas-Access-Token'] ||
     req.headers['x-asaas-token'];
-  return got === WEBHOOK_TOKEN;
+
+  if (!got || typeof got !== 'string') return false;
+  if (got.length !== WEBHOOK_TOKEN.length) return false;
+
+  try {
+    return crypto.timingSafeEqual(
+      Buffer.from(got, 'utf8'),
+      Buffer.from(WEBHOOK_TOKEN, 'utf8')
+    );
+  } catch {
+    return false;
+  }
 }
 
 module.exports = {
