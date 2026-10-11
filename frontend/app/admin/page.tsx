@@ -54,7 +54,7 @@ export default function AdminDashboard() {
         </div>
       </header>
 
-      <div className="flex-1 overflow-y-auto p-6">
+      <div className="page-scroll page-pad">
         <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {cards.map((c) => {
             const Icon = c.icon;
@@ -78,7 +78,7 @@ export default function AdminDashboard() {
         <div className="grid gap-4 sm:grid-cols-2">
           <Link
             href="/admin/support"
-            className="group rounded-xl border border-border bg-card p-6 transition-colors hover:border-primary/40 hover:bg-card/80"
+            className="group rounded-xl border border-border bg-card card-pad transition-colors hover:border-primary/40 hover:bg-card/80"
           >
             <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-lg bg-red-500/15">
               <LifeBuoy className="h-5 w-5 text-red-400" />

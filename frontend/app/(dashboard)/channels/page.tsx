@@ -76,7 +76,7 @@ function WhatsQrModal({ onClose }: { onClose: () => void }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
-      <div className="w-full max-w-md rounded-xl border border-border bg-card p-6">
+      <div className="w-full max-w-md rounded-xl border border-border bg-card card-pad">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-lg font-semibold">Conectar WhatsApp</h2>
           <button
@@ -238,7 +238,7 @@ export default function ChannelsPage() {
         title="Canais"
         subtitle="WhatsApp ativo - Instagram/Messenger no roadmap - demais em breve"
       />
-      <div className="flex-1 overflow-y-auto p-6">
+      <div className="page-scroll page-pad">
         {!waOk && !isLoading && (
           <div className="mb-6 flex flex-col items-start gap-3 rounded-xl border border-amber-500/30 bg-amber-500/10 p-5 sm:flex-row sm:items-center">
             <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-card">
@@ -269,7 +269,7 @@ export default function ChannelsPage() {
         <p className="mb-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">
           Canais do TCC
         </p>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-3 sm:gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {PRIMARY
             .filter((key) => {
               // BUG-053: so mostra Meta se o backend confirmar que esta configurado
@@ -298,7 +298,7 @@ export default function ChannelsPage() {
           ))}
         </div>
 
-        <div className="mt-8 rounded-xl border border-border bg-card p-6 text-sm text-muted-foreground">
+        <div className="mt-8 rounded-xl border border-border bg-card card-pad text-sm text-muted-foreground">
           <p className="font-medium text-foreground">
             Instagram / Messenger
           </p>

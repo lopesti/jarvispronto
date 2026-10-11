@@ -31,7 +31,7 @@ export default function SupportPage() {
         subtitle="Abra e acompanhe seus chamados com o time Jarvis"
       />
 
-      <div className="flex-1 overflow-y-auto p-6">
+      <div className="page-scroll page-pad">
         <div className="mb-6 flex items-center justify-between">
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <MessageSquare className="h-4 w-4" />

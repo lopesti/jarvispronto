@@ -38,7 +38,7 @@ export default function NewTicketPage() {
         subtitle="Descreva o problema ou dúvida e enviaremos ao time Jarvis"
       />
 
-      <div className="flex-1 overflow-y-auto p-6">
+      <div className="page-scroll page-pad">
         <div className="mx-auto max-w-2xl">
           <Link
             href="/support"
@@ -50,7 +50,7 @@ export default function NewTicketPage() {
 
           <form
             onSubmit={handleSubmit}
-            className="space-y-5 rounded-xl border border-border bg-card p-6"
+            className="space-y-5 rounded-xl border border-border bg-card card-pad"
           >
             <div>
               <label className="mb-1.5 block text-sm font-medium">

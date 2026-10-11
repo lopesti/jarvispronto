@@ -93,7 +93,7 @@ export default function ProdutosPage() {
     <>
       <Header title="Produtos" subtitle="Catalogo de produtos do tenant" />
 
-      <div className="flex-1 overflow-y-auto p-6">
+      <div className="page-scroll page-pad">
         {/* Barra de ações */}
         <div className="mb-4 flex items-center justify-between">
           <div className="text-sm text-muted-foreground">
@@ -141,7 +141,8 @@ export default function ProdutosPage() {
         {/* Tabela */}
         {!isLoading && list.length > 0 && (
           <div className="overflow-hidden rounded-xl border border-border">
-            <table className="w-full text-sm">
+            <div className="w-full overflow-x-auto rounded-xl border border-border">
+<table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border bg-card text-left text-muted-foreground">
                   <th className="px-4 py-3 font-medium">ID</th>
@@ -210,7 +211,7 @@ export default function ProdutosPage() {
           onClick={closeForm}
         >
           <div
-            className="w-full max-w-lg rounded-xl border border-border bg-card p-6 shadow-2xl"
+            className="w-full max-w-lg rounded-xl border border-border bg-card card-pad shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="mb-5 flex items-center justify-between">

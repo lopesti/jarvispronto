@@ -63,3 +63,33 @@
   background: hsl(var(--muted-foreground) / 0.35);
   border-radius: 3px;
 }
+
+/* Responsividade avançada — alinhada à Landing */
+@layer utilities {
+  .page-pad {
+    @apply p-3 sm:p-4 md:p-6;
+  }
+  .page-scroll {
+    @apply flex-1 overflow-y-auto overflow-x-hidden;
+  }
+  .card-pad {
+    @apply p-4 sm:p-5 md:p-6;
+  }
+  .touch-target {
+    @apply min-h-[44px] min-w-[44px];
+  }
+}
+
+/* Evita zoom indesejado em inputs no iOS */
+@media screen and (max-width: 767px) {
+  input, select, textarea {
+    font-size: 16px !important;
+  }
+}
+
+/* Safe area (notch) */
+@supports (padding: env(safe-area-inset-bottom)) {
+  .safe-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}

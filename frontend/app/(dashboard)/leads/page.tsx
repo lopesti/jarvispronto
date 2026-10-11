@@ -21,7 +21,7 @@ export default function LeadsPage() {
   return (
     <>
       <Header title="Leads" subtitle="Leads gerados pelo WhatsApp" />
-      <div className="flex-1 overflow-y-auto p-6">
+      <div className="page-scroll page-pad">
         {isLoading ? (
           <div className="overflow-hidden rounded-xl border border-border">
             <div className="h-12 animate-pulse bg-card/50" />
@@ -51,7 +51,8 @@ export default function LeadsPage() {
           </div>
         ) : (
           <div className="overflow-hidden rounded-xl border border-border">
-            <table className="w-full text-sm">
+            <div className="w-full overflow-x-auto rounded-xl border border-border">
+<table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border bg-card text-left text-muted-foreground">
                   <th className="px-4 py-3 font-medium">Telefone</th>
