@@ -5,10 +5,11 @@ const rateLimit = require('express-rate-limit');
 const logger = require('./utils/logger');
 const authMiddleware = require('./middlewares/auth');
 const requireSuperadmin = require('./middlewares/requireSuperadmin');
+const { promoteFromEnv: promoteSuperadmin } = require('./services/superadminService');
 
-// ═══════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════
 //  Validação de env obrigatórios
-// ═══════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════
 const requiredEnv = ['JWT_SECRET', 'DATABASE_URL'];
 const missing = requiredEnv.filter((key) => !process.env[key]);
 if (missing.length) {
@@ -19,9 +20,9 @@ if (missing.length) {
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// ═══════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════
 //  Modo fila vs inline
-// ═══════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════
 const useQueue = process.env.USE_MESSAGE_QUEUE === '1';
 
 if (process.env.TRUST_PROXY === '1') {
@@ -31,10 +32,10 @@ if (process.env.TRUST_PROXY === '1') {
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true }));
 
-// ═══════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════
 //  CORS — allowlist estrita (BUG-004 CORRIGIDO)
 //  + aceita *.trycloudflare.com (Cloudflare Tunnel quick)
-// ═══════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════
 const allowedOrigins = (
     process.env.CORS_ORIGINS ||
     'http://localhost,http://localhost:80,http://127.0.0.1,http://localhost:3000,http://localhost:3001,https://localhost,https://127.0.0.1'
@@ -71,9 +72,9 @@ app.use((err, req, res, next) => {
     return next(err);
 });
 
-// ═══════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════
 //  Rate limiting
-// ═══════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════
 const apiLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
     max: isProd ? 3000 : 30000,
@@ -91,9 +92,9 @@ const authLimiter = rateLimit({
 app.use('/api', apiLimiter);
 app.use('/auth', authLimiter);
 
-// ═══════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════
 //  Rotas
-// ═══════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════
 app.use('/auth', require('./routes/auth'));
 
 app.use('/api/users', authMiddleware, require('./routes/users'));
@@ -117,9 +118,9 @@ app.use('/api/crm', require('./routes/crm'));
 
 app.use('/internal', require('./routes/internal'));
 
-// ═══════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════
 //  Health check + Metrics
-// ═══════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════
 app.get('/metrics', (req, res) => {
     const { getMetrics } = require('./utils/metrics');
     const companyId = req.query.companyId ? Number(req.query.companyId) : null;
@@ -130,21 +131,21 @@ app.get('/metrics', (req, res) => {
 app.get('/health', (req, res) => {
     res.json({
         status: 'ok',
-        version: '1.6.0',
+        version: '1.15.0',
         timestamp: new Date().toISOString(),
     });
 });
 
-// ═══════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════
 //  404 handler JSON (BUG-076)
-// ═══════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════
 app.use((req, res) => {
     res.status(404).json({ error: 'Not Found', path: req.originalUrl });
 });
 
-// ═══════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════
 //  WhatsApp — modo fila vs inline
-// ═══════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════
 const whatsappService = require('./services/whatsappService');
 
 if (useQueue) {
@@ -167,9 +168,9 @@ if (useQueue) {
     }
 }
 
-// ═══════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════
 //  Migrations + Listen
-// ═══════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════
 const { runMigrations } = require('./models/migrate');
 
 (async () => {
@@ -178,8 +179,11 @@ const { runMigrations } = require('./models/migrate');
         await runMigrations();
         logger.info('[boot] Migrations OK. Subindo servidor...');
 
+        // S-08: promove SUPERADMIN_EMAIL a superadmin (idempotente)
+        await promoteSuperadmin();
+
         app.listen(PORT, () => {
-            logger.info(`Servidor rodando em http://0.0.0.0:${PORT} v1.6.0 mode=${useQueue ? 'queue' : 'inline'}`);
+            logger.info(`Servidor rodando em http://0.0.0.0:${PORT} v1.15.0 mode=${useQueue ? 'queue' : 'inline'}`);
             logger.info('Via Nginx: http://localhost/');
             try {
                 const { startTaskReminderCron } = require('./services/taskReminderService');

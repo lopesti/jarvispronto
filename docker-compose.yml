@@ -177,43 +177,6 @@ services:
     networks:
       - jarvis-net
 
-  # ═══════════════════════════════════════════════════════════
-  #  n8n — Automação visual (opcional, sobe com --profile n8n)
-  #  Uso: docker compose --profile n8n up -d
-  #  Acesso: http://localhost:5678
-  #  Login: admin / JarvisN8n2026!
-  # ═══════════════════════════════════════════════════════════
-  n8n:
-    image: n8nio/n8n:latest
-    container_name: jarvis-n8n
-    restart: unless-stopped
-    ports:
-      - "5678:5678"
-    environment:
-      # Auth basica
-      N8N_BASIC_AUTH_ACTIVE: "true"
-      N8N_BASIC_AUTH_USER: "admin"
-      N8N_BASIC_AUTH_PASSWORD: "JarvisN8n2026!"
-      # Host/porta
-      N8N_HOST: "localhost"
-      N8N_PORT: "5678"
-      N8N_PROTOCOL: "http"
-      # Timezone
-      GENERIC_TIMEZONE: "America/Sao_Paulo"
-      TZ: "America/Sao_Paulo"
-      # Permite chamadas entre containers da rede jarvis-net
-      N8N_SECURE_COOKIE: "false"
-      # Webhook URL (trocar quando tiver domínio público)
-      WEBHOOK_URL: "http://localhost:5678/"
-      # Desabilita telemetria
-      N8N_DIAGNOSTICS_ENABLED: "false"
-    volumes:
-      - n8n_data:/home/node/.n8n
-    networks:
-      - jarvis-net
-    profiles:
-      - n8n
-
 volumes:
   jarvis_auth:
   jarvis_logs:
@@ -221,7 +184,6 @@ volumes:
   jarvis_redis:
   certbot_www:
   certbot_etc:
-  n8n_data:
 
 networks:
   jarvis-net:
