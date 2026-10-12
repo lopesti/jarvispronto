@@ -169,6 +169,72 @@ if (useQueue) {
 }
 
 // ═══════════════════════════════════════════════════════════════
+//  O-03: shutdown gracioso (SIGINT, SIGTERM, uncaughtException)
+// ═══════════════════════════════════════════════════════════════
+let httpServer = null;
+let shuttingDown = false;
+
+async function shutdown(signal) {
+    if (shuttingDown) return;
+    shuttingDown = true;
+
+    logger.info(`[shutdown] Recebido ${signal}. Encerrando...`);
+
+    // Timeout de seguranca: se algo travar, forca saida em 10s
+    const forceExit = setTimeout(() => {
+        logger.error('[shutdown] Timeout apos 10s — forcando saida');
+        process.exit(1);
+    }, 10000);
+    forceExit.unref();
+
+    // 1. Para de aceitar novas conexoes HTTP
+    try {
+        if (httpServer) {
+            await new Promise((resolve) => httpServer.close(resolve));
+            logger.info('[shutdown] HTTP server fechado');
+        }
+    } catch (e) {
+        logger.warn('[shutdown] Erro ao fechar HTTP: ' + e.message);
+    }
+
+    // 2. Desconecta WhatsApp (somente em modo inline)
+    try {
+        if (!useQueue) {
+            await whatsappService.disconnect();
+            logger.info('[shutdown] WhatsApp desconectado');
+        }
+    } catch (e) {
+        logger.warn('[shutdown] Erro ao desconectar WA: ' + e.message);
+    }
+
+    // 3. Fecha pool Postgres
+    try {
+        const { pool } = require('./models/database');
+        await pool.end();
+        logger.info('[shutdown] Pool Postgres fechado');
+    } catch (e) {
+        logger.warn('[shutdown] Erro ao fechar DB: ' + e.message);
+    }
+
+    logger.info('[shutdown] Encerrado com sucesso');
+    process.exit(0);
+}
+
+process.on('SIGINT', () => shutdown('SIGINT'));
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+
+process.on('uncaughtException', (err) => {
+    logger.error(`[fatal] uncaughtException: ${err.message}`);
+    logger.error(err.stack || '');
+    shutdown('uncaughtException');
+});
+
+process.on('unhandledRejection', (reason) => {
+    logger.error(`[fatal] unhandledRejection: ${reason}`);
+    shutdown('unhandledRejection');
+});
+
+// ═══════════════════════════════════════════════════════════════
 //  Migrations + Listen
 // ═══════════════════════════════════════════════════════════════
 const { runMigrations } = require('./models/migrate');
@@ -182,7 +248,7 @@ const { runMigrations } = require('./models/migrate');
         // S-08: promove SUPERADMIN_EMAIL a superadmin (idempotente)
         await promoteSuperadmin();
 
-        app.listen(PORT, () => {
+        httpServer = app.listen(PORT, () => {
             logger.info(`Servidor rodando em http://0.0.0.0:${PORT} v1.15.0 mode=${useQueue ? 'queue' : 'inline'}`);
             logger.info('Via Nginx: http://localhost/');
             try {
@@ -198,11 +264,3 @@ const { runMigrations } = require('./models/migrate');
         process.exit(1);
     }
 })();
-
-process.on('SIGINT', async () => {
-    logger.info('Desligando...');
-    if (!useQueue) {
-        await whatsappService.disconnect();
-    }
-    process.exit(0);
-});
