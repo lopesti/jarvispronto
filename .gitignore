@@ -31,3 +31,14 @@ backups-db/
 
 *.tsbuildinfo
 promover.sql
+
+# L-01: dados locais com PII
+scripts/whitelist.local.json
+bloqueados.json
+contacts.csv
+contacts (1).csv
+# L-01: dados locais com PII
+scripts/whitelist.local.json
+bloqueados.json
+contacts.csv
+contacts (1).csv
