@@ -7,10 +7,31 @@ const { invalidateFunnelCache } = require('../utils/funnel');
 
 // O authMiddleware eh aplicado no app.js (igual as outras rotas /api/*)
 
+// S-05: apenas owner ou superadmin pode alterar config do tenant
+function canEditConfig(req) {
+  return (
+    req.user &&
+    (req.user.role === 'owner' || req.user.is_superadmin === true)
+  );
+}
+
 function sameTenant(req, id) {
   const userCompanyId = Number(req.user && req.user.companyId);
   return userCompanyId && userCompanyId === Number(id);
 }
+
+// S-05: allowlist de chaves permitidas no config JSONB
+const CONFIG_ALLOWLIST = new Set([
+  'systemPrompt',
+  'fallbackMessage',
+  'funnelRules',
+  'adminPhone',
+]);
+
+// S-05: limites de tamanho (bytes aproximados por campo)
+const MAX_SYSTEM_PROMPT = 8000;
+const MAX_FALLBACK_MESSAGE = 500;
+const MAX_FUNNEL_RULES = 10000;
 
 /**
  * GET /api/companies/:id/config
@@ -41,14 +62,13 @@ router.get('/:id/config', async (req, res) => {
 /**
  * PUT /api/companies/:id/config
  *
- * Aceita qualquer chave JSON:
- *   - systemPrompt     (string) — prompt do bot (BUG-009)
- *   - fallbackMessage  (string) — fallback de IA (BUG-009)
- *   - funnelRules      (object) — regras do funil por tenant (BUG-031)
- *   - adminPhone       (string) — telefone admin (futuro BUG-035)
- *   - e o que mais vier no config JSONB
+ * S-05 (corrigido): apenas owner/superadmin, allowlist de chaves, limites de tamanho.
  *
- * BUG-071: antes era allowlist hardcoded e rejeitava campos novos.
+ * Chaves aceitas:
+ *   - systemPrompt     (string, max 8000 chars)  — prompt do bot (BUG-009)
+ *   - fallbackMessage  (string, max 500 chars)   — fallback de IA (BUG-009)
+ *   - funnelRules      (object, max 10000 bytes) — regras do funil por tenant (BUG-031)
+ *   - adminPhone       (string)                  — telefone do admin
  */
 router.put('/:id/config', async (req, res) => {
   try {
@@ -60,31 +80,91 @@ router.put('/:id/config', async (req, res) => {
       return res.status(403).json({ error: 'Acesso negado a outro tenant' });
     }
 
+    // S-05: somente owner ou superadmin
+    if (!canEditConfig(req)) {
+      return res
+        .status(403)
+        .json({ error: 'Apenas owner ou superadmin pode alterar a configuracao' });
+    }
+
     const body = req.body || {};
     const patch = {};
 
-    // Campos texto: normaliza (trim) e ignora vazios
-    if (typeof body.systemPrompt === 'string' && body.systemPrompt.trim()) {
-      patch.systemPrompt = body.systemPrompt.trim();
-    }
-    if (typeof body.fallbackMessage === 'string' && body.fallbackMessage.trim()) {
-      patch.fallbackMessage = body.fallbackMessage.trim();
-    }
-
-    // BUG-071: aceita qualquer chave JSON extra (funnelRules, adminPhone, etc.)
-    const RESERVED = new Set(['systemPrompt', 'fallbackMessage']);
-    for (const [k, v] of Object.entries(body)) {
-      if (RESERVED.has(k)) continue;
-      if (v === undefined) continue;
-      patch[k] = v;
+    // systemPrompt
+    if (body.systemPrompt !== undefined) {
+      if (typeof body.systemPrompt !== 'string') {
+        return res.status(400).json({ error: 'systemPrompt deve ser string' });
+      }
+      const val = body.systemPrompt.trim();
+      if (val.length > MAX_SYSTEM_PROMPT) {
+        return res.status(400).json({
+          error: `systemPrompt excede ${MAX_SYSTEM_PROMPT} caracteres`,
+        });
+      }
+      if (val) patch.systemPrompt = val;
     }
 
-    // Nome da empresa (coluna, não config)
+    // fallbackMessage
+    if (body.fallbackMessage !== undefined) {
+      if (typeof body.fallbackMessage !== 'string') {
+        return res.status(400).json({ error: 'fallbackMessage deve ser string' });
+      }
+      const val = body.fallbackMessage.trim();
+      if (val.length > MAX_FALLBACK_MESSAGE) {
+        return res.status(400).json({
+          error: `fallbackMessage excede ${MAX_FALLBACK_MESSAGE} caracteres`,
+        });
+      }
+      if (val) patch.fallbackMessage = val;
+    }
+
+    // funnelRules (objeto)
+    if (body.funnelRules !== undefined) {
+      if (
+        typeof body.funnelRules !== 'object' ||
+        body.funnelRules === null ||
+        Array.isArray(body.funnelRules)
+      ) {
+        return res.status(400).json({ error: 'funnelRules deve ser objeto' });
+      }
+      const size = JSON.stringify(body.funnelRules).length;
+      if (size > MAX_FUNNEL_RULES) {
+        return res.status(400).json({
+          error: `funnelRules excede ${MAX_FUNNEL_RULES} bytes`,
+        });
+      }
+      patch.funnelRules = body.funnelRules;
+    }
+
+    // adminPhone
+    if (body.adminPhone !== undefined) {
+      if (typeof body.adminPhone !== 'string') {
+        return res.status(400).json({ error: 'adminPhone deve ser string' });
+      }
+      const val = body.adminPhone.trim();
+      if (val.length > 40) {
+        return res.status(400).json({ error: 'adminPhone muito longo' });
+      }
+      patch.adminPhone = val;
+    }
+
+    // S-05: rejeita chaves nao permitidas explicitamente
+    const chavesEnviadas = Object.keys(body).filter((k) => k !== 'name');
+    const chavesInvalidas = chavesEnviadas.filter(
+      (k) => !CONFIG_ALLOWLIST.has(k)
+    );
+    if (chavesInvalidas.length) {
+      return res.status(400).json({
+        error: `Chaves nao permitidas: ${chavesInvalidas.join(', ')}`,
+        allowed: Array.from(CONFIG_ALLOWLIST),
+      });
+    }
+
+    // Nome da empresa (coluna, nao config)
     const companyName =
       typeof body.name === 'string' && body.name.trim().length >= 2
         ? body.name.trim()
         : null;
-    delete patch.name;
 
     if (Object.keys(patch).length === 0 && !companyName) {
       return res.status(400).json({ error: 'Nada para atualizar' });
@@ -122,7 +202,7 @@ router.put('/:id/config', async (req, res) => {
     invalidateSystemPromptCache(id);
     invalidateFunnelCache(id);
     logger.info(
-      `[companies] config atualizada company=${id} user=${req.user.id} chaves=${Object.keys(patch).join(',')}`
+      `[companies] config atualizada company=${id} user=${req.user.id} role=${req.user.role} chaves=${Object.keys(patch).join(',')}`
     );
 
     return res.json({ ok: true, company: rows[0] });
