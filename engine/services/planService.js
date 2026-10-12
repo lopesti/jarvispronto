@@ -52,12 +52,70 @@ async function getCompanySubscription(companyId) {
 }
 
 /**
- * Verifica se a empresa ainda está dentro do trial/plano ativo.
+ * F-05: cria assinatura trial para uma empresa nova.
+ * Idempotente: se a empresa ja tiver assinatura ativa/trial, retorna ela.
+ *
+ * @param {number} companyId
+ * @param {number} trialDays - duracao do trial (default: 14)
+ * @returns {object|null} subscription criada ou existente
+ */
+async function createTrialSubscription(companyId, trialDays = 14) {
+  const cid = Number(companyId);
+  if (!cid || Number.isNaN(cid)) {
+    logger.warn(`[planService] createTrialSubscription: companyId invalido (${companyId})`);
+    return null;
+  }
+
+  // Se ja tem assinatura ativa/trial/past_due, retorna ela
+  const existing = await getCompanySubscription(cid);
+  if (existing) {
+    return existing;
+  }
+
+  // Busca o plano trial
+  const trialPlan = await getPlanByCode('trial');
+  if (!trialPlan) {
+    logger.error('[planService] plano "trial" nao encontrado — verifique migration 020');
+    return null;
+  }
+
+  // Cria a assinatura trial
+  const { rows } = await query(
+    `INSERT INTO subscriptions (
+        company_id, plan_id, status, billing_cycle,
+        trial_ends_at, current_period_start, current_period_end
+     ) VALUES ($1, $2, 'trial', 'monthly', NOW() + ($3 || ' days')::interval, NOW(), NOW() + ($3 || ' days')::interval)
+     RETURNING *`,
+    [cid, trialPlan.id, String(trialDays)]
+  );
+
+  // Atualiza cache rapido na companies
+  await query(
+    `UPDATE companies
+        SET plan_code = 'trial',
+            subscription_status = 'trial'
+      WHERE id = $1`,
+    [cid]
+  );
+
+  // Registra evento de billing
+  await query(
+    `INSERT INTO billing_events (company_id, type, payload)
+     VALUES ($1, 'subscription.trial_created', $2)`,
+    [cid, JSON.stringify({ planCode: 'trial', trialDays, subscriptionId: rows[0].id })]
+  );
+
+  logger.info(`[planService] trial criado company=${cid} subscription=${rows[0].id} (${trialDays}d)`);
+  return rows[0];
+}
+
+/**
+ * Verifica se a empresa ainda esta dentro do trial/plano ativo.
  */
 function isSubscriptionUsable(sub) {
   if (!sub) return false;
   if (sub.status === 'active') return true;
-  if (sub.status === 'past_due') return true; // soft — avisa mas não corta
+  if (sub.status === 'past_due') return true; // soft — avisa mas nao corta
   if (sub.status === 'trial') {
     if (!sub.trial_ends_at) return true;
     return new Date(sub.trial_ends_at) > new Date();
@@ -66,7 +124,7 @@ function isSubscriptionUsable(sub) {
 }
 
 /**
- * Limite numérico do plano. -1 = ilimitado.
+ * Limite numerico do plano. -1 = ilimitado.
  */
 function getLimit(sub, key) {
   if (!sub || !sub.limits) return 0;
@@ -80,6 +138,7 @@ module.exports = {
   getPlanByCode,
   getPlanById,
   getCompanySubscription,
+  createTrialSubscription,
   isSubscriptionUsable,
   getLimit,
 };
