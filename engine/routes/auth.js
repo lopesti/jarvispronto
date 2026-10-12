@@ -3,6 +3,7 @@ const router = express.Router();
 const { query } = require('../models/database');
 const logger = require('../utils/logger');
 const authMiddleware = require('../middlewares/auth');
+const planService = require('../services/planService');
 const {
   signAccessToken,
   createRefreshToken,
@@ -91,6 +92,17 @@ router.post('/register', async (req, res) => {
 
     const user = result.rows[0];
     user.company_id = company.id;
+
+    // F-05: toda empresa nova nasce com trial de 14 dias.
+    // Se falhar, o cadastro continua — mas loga o aviso pra investigar.
+    try {
+      await planService.createTrialSubscription(company.id);
+    } catch (trialErr) {
+      logger.warn(
+        `[auth] falha ao criar trial company=${company.id}: ${trialErr.message}`
+      );
+    }
+
     const accessToken = signAccessToken(user);
 
     // F-01: createRefreshToken devolve { raw, familyId } — extrai raw
