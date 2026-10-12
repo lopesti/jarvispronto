@@ -57,6 +57,10 @@ async function handleMessage(from, text, sock, opts = {}) {
       companyId,
     });
 
+    // F-06: le o historico ANTES de gravar a mensagem atual.
+    // Assim o prompt da IA nao recebe a ultima fala duplicada.
+    const history = await messageRepo.getHistory(phone, 10, companyId);
+
     await messageRepo.insert({
       phone,
       role: 'user',
@@ -93,12 +97,11 @@ async function handleMessage(from, text, sock, opts = {}) {
       return;
     }
 
-    const history = await messageRepo.getHistory(phone, 10, companyId);
-
     let responseText;
     try {
       const geminiService = require('../services/geminiService');
       // BUG-008 CORRIGIDO: passa companyId para isolar cache por tenant
+      // F-06 CORRIGIDO: history nao contem a mensagem atual
       responseText = await geminiService.generateResponse(body, history, companyId);
       try {
         const { inc } = require('../utils/metrics');
