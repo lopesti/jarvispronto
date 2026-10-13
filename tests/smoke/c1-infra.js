@@ -1,46 +1,131 @@
-// tests/smoke/c1-infra.js — Camada 1: Infra
-// Roda: node tests/smoke/c1-infra.js
+name: CI
 
-const { execSync } = require('child_process');
-const { httpGet, httpGetPlain, check, section, summary, exitCode } = require('./lib/http');
+on:
+  push:
+    branches: [main, master, develop]
+  pull_request:
+    branches: [main, master, develop]
 
-(async () => {
-  section('C1 — INFRA');
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
-  // 1.1 Containers Up
-  const containers = ['api', 'worker', 'nginx', 'postgres', 'redis', 'frontend'];
-  try {
-    const ps = execSync('docker compose ps --format "{{.Service}}|{{.Status}}"', { encoding: 'utf8' });
-    const lines = ps.trim().split('\n');
-    const map = {};
-    lines.forEach((l) => {
-      const [svc, status] = l.split('|');
-      map[svc] = status || '';
-    });
-    for (const c of containers) {
-      const st = map[c] || '(não encontrado)';
-      check(`container ${c}`, st.startsWith('Up'), st);
-    }
-  } catch (e) {
-    check('docker compose ps', false, e.message);
-  }
+permissions:
+  contents: read
 
-  // 1.2 HTTP → HTTPS (em HTTP puro, deve redirecionar 301)
-  try {
-    const r = await httpGetPlain('/');
-    check('HTTP → HTTPS', r.status === 301, `HTTP ${r.status}`);
-  } catch (e) {
-    check('HTTP → HTTPS', false, e.message);
-  }
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run lint
 
-  // 1.3 HTTPS responde
-  try {
-    const r = await httpGet('/');
-    check('HTTPS responde', r.status === 200, `HTTP ${r.status}`);
-  } catch (e) {
-    check('HTTPS responde', false, e.message);
-  }
+  test:
+    name: Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm ci
 
-  summary('C1');
-  exitCode();
-})();
+      - name: Unit tests (Jest)
+        run: npm test
+        env:
+          JWT_SECRET: test_secret_min_16_chars_ok
+          DATABASE_URL: postgres://test:test@localhost:5432/test
+          NODE_ENV: test
+
+      - name: Testes standalone (checks)
+        run: |
+          node tests/unit/handoffKeywords.check.js
+          node tests/unit/webhook-token.check.js
+          node tests/unit/funnel-acento.check.js
+          node tests/unit/refresh-shape.check.js
+        env:
+          JWT_SECRET: test_secret_min_16_chars_ok
+          DATABASE_URL: postgres://test:test@localhost:5432/test
+          NODE_ENV: test
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Frontend typecheck
+        working-directory: frontend
+        run: |
+          npm ci
+          npx tsc --noEmit
+
+  docker-build:
+    name: Docker build
+    runs-on: ubuntu-latest
+    needs: [lint, test]
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build API image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          load: true
+          tags: jarvispronto-api:ci
+          cache-from: type=gha,scope=api
+          cache-to: type=gha,mode=max,scope=api
+
+      - name: Build frontend image
+        uses: docker/build-push-action@v6
+        with:
+          context: frontend
+          file: frontend/Dockerfile.frontend
+          load: true
+          tags: jarvispronto-frontend:ci
+          cache-from: type=gha,scope=frontend
+          cache-to: type=gha,mode=max,scope=frontend
+
+  secrets-scan:
+    name: Secrets scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run Gitleaks via Docker
+        run: |
+          docker run --rm \
+            -v "$PWD:/repo" \
+            zricethezav/gitleaks:latest \
+            detect --source=/repo --verbose --config=/repo/.gitleaks.toml --redact --exit-code=1
