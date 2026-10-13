@@ -6,103 +6,131 @@ import {
   Building2,
   Users,
   MessageSquare,
-  LifeBuoy,
+  Package,
   ArrowRight,
 } from "lucide-react";
 import Link from "next/link";
 
-type AdminMetrics = {
-  total_companies: string;
-  total_users: string;
-  total_products: string;
-  total_conversations: string;
-  total_messages: string;
+type CompanyRow = {
+  id: number;
+  name?: string;
+  users_count?: number | string;
+  conversations_count?: number | string;
+  products_count?: number | string;
+};
+
+type UserRow = {
+  id: number;
+  email?: string;
+  name?: string;
+  company_id?: number;
 };
 
 export default function AdminDashboard() {
-  const { data: metrics, isLoading } = useQuery<AdminMetrics>({
-    queryKey: ["admin-metrics"],
+  const companies = useQuery({
+    queryKey: ["admin-companies"],
     queryFn: async () => {
-      const { data } = await api.get("/api/admin/support/tickets");
-      const tickets = Array.isArray(data) ? data : [];
-      return {
-        total_companies: "—",
-        total_users: "—",
-        total_products: "—",
-        total_conversations: "—",
-        total_messages: String(tickets.length),
-      };
+      const { data } = await api.get("/api/admin/companies");
+      return (Array.isArray(data) ? data : data?.companies || []) as CompanyRow[];
     },
-    refetchInterval: 30000,
   });
 
-  const cards = [
-    { label: "Empresas", value: metrics?.total_companies || "—", icon: Building2 },
-    { label: "Usuarios", value: metrics?.total_users || "—", icon: Users },
-    { label: "Produtos", value: metrics?.total_products || "—", icon: MessageSquare },
-    { label: "Chamados", value: metrics?.total_messages || "—", icon: LifeBuoy },
-  ];
+  const users = useQuery({
+    queryKey: ["admin-users"],
+    queryFn: async () => {
+      const { data } = await api.get("/api/admin/users");
+      return (Array.isArray(data) ? data : data?.users || []) as UserRow[];
+    },
+  });
+
+  const companyList = companies.data || [];
+  const userList = users.data || [];
+
+  const totalCompanies = companyList.length;
+  const totalUsers = userList.length;
+  const totalConversations = companyList.reduce(
+    (a, c) => a + Number(c.conversations_count || 0),
+    0
+  );
+  const totalProducts = companyList.reduce(
+    (a, c) => a + Number(c.products_count || 0),
+    0
+  );
+
+  const loading = companies.isLoading || users.isLoading;
 
   return (
-    <>
-      <header className="flex h-16 items-center justify-between border-b border-border px-6">
-        <div>
-          <h1 className="text-lg font-semibold">Painel Admin</h1>
-          <p className="text-xs text-muted-foreground">
-            Visao geral do sistema Jarvis
-          </p>
-        </div>
-      </header>
+    <div className="min-h-screen bg-background text-foreground">
+      <div className="border-b border-border px-4 py-4 sm:px-6">
+        <h1 className="text-xl font-bold tracking-tight">Admin · Superadmin</h1>
+        <p className="text-sm text-muted-foreground">Visão global de empresas e usuários</p>
+      </div>
 
-      <div className="page-scroll page-pad">
-        <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {cards.map((c) => {
-            const Icon = c.icon;
-            return (
-              <div
-                key={c.label}
-                className="rounded-xl border border-border bg-card p-5"
-              >
-                <div className="mb-3 flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">{c.label}</span>
-                  <Icon className="h-4 w-4 text-muted-foreground" />
+      <div className="mx-auto max-w-6xl space-y-6 p-4 sm:p-6">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <StatCard icon={Building2} label="Empresas" value={loading ? "…" : String(totalCompanies)} />
+          <StatCard icon={Users} label="Usuários" value={loading ? "…" : String(totalUsers)} />
+          <StatCard
+            icon={MessageSquare}
+            label="Conversas"
+            value={loading ? "…" : String(totalConversations)}
+          />
+          <StatCard icon={Package} label="Produtos" value={loading ? "…" : String(totalProducts)} />
+        </div>
+
+        {(companies.isError || users.isError) && (
+          <p className="text-sm text-destructive">
+            Falha ao carregar dados admin. Verifique se sua conta é superadmin.
+          </p>
+        )}
+
+        <div className="rounded-xl border border-border bg-card">
+          <div className="flex items-center justify-between border-b border-border px-4 py-3">
+            <h2 className="text-sm font-semibold">Empresas recentes</h2>
+            <Link href="/admin/companies" className="flex items-center gap-1 text-xs text-primary">
+              Ver todas <ArrowRight className="h-3 w-3" />
+            </Link>
+          </div>
+          <div className="divide-y divide-border">
+            {loading && <p className="p-4 text-sm text-muted-foreground">Carregando…</p>}
+            {!loading && companyList.length === 0 && (
+              <p className="p-4 text-sm text-muted-foreground">Nenhuma empresa encontrada.</p>
+            )}
+            {companyList.slice(0, 8).map((c) => (
+              <div key={c.id} className="flex items-center justify-between px-4 py-3 text-sm">
+                <div>
+                  <p className="font-medium">{c.name || `Empresa #${c.id}`}</p>
+                  <p className="text-xs text-muted-foreground">ID {c.id}</p>
                 </div>
-                <div className="text-2xl font-bold">
-                  {isLoading ? "..." : c.value}
+                <div className="text-right text-xs text-muted-foreground">
+                  <div>{c.users_count ?? 0} usuários</div>
+                  <div>{c.conversations_count ?? 0} conversas</div>
                 </div>
               </div>
-            );
-          })}
-        </div>
-
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Link
-            href="/admin/support"
-            className="group rounded-xl border border-border bg-card card-pad transition-colors hover:border-primary/40 hover:bg-card/80"
-          >
-            <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-lg bg-red-500/15">
-              <LifeBuoy className="h-5 w-5 text-red-400" />
-            </div>
-            <h3 className="mb-1 font-semibold">Central de Suporte</h3>
-            <p className="mb-3 text-sm text-muted-foreground">
-              Veja e responda chamados de todas as empresas
-            </p>
-            <span className="inline-flex items-center gap-1 text-sm text-primary group-hover:gap-2 transition-all">
-              Abrir <ArrowRight className="h-4 w-4" />
-            </span>
-          </Link>
-
-          <div className="rounded-xl border border-dashed border-border bg-card/50 p-6">
-            <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-lg bg-secondary">
-              <Building2 className="h-5 w-5 text-muted-foreground" />
-            </div>
-            <h3 className="mb-1 font-semibold">Gestao de Empresas</h3>
-            <p className="text-sm text-muted-foreground">
-              Em breve: gerenciar planos, suspender contas, ver uso
-            </p>
+            ))}
           </div>
         </div>
       </div>
-    </>
+    </div>
+  );
+}
+
+function StatCard({
+  icon: Icon,
+  label,
+  value,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="rounded-xl border border-border bg-card p-4">
+      <div className="flex items-center gap-2 text-muted-foreground">
+        <Icon className="h-4 w-4" />
+        <span className="text-xs font-medium uppercase tracking-wide">{label}</span>
+      </div>
+      <p className="mt-2 text-2xl font-bold tracking-tight">{value}</p>
+    </div>
   );
 }

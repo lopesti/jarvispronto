@@ -8,7 +8,7 @@ router.get('/stats', ConversationController.stats);
 router.get('/pipeline/summary', ConversationController.pipeline);
 router.get('/:id', ConversationController.get);
 router.patch('/:id/step', ConversationController.updateStep);
-router.post('/:id/messages', ConversationController.sendMessage);
+router.post('/:id/messages', checkLimit('conversations', { softBlock: true }), ConversationController.sendMessage);
 router.post('/:id/handoff', ConversationController.handoff);
 router.post('/:id/claim', ConversationController.claim);
 router.post('/:id/release', ConversationController.releaseToBot);

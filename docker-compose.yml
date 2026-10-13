@@ -53,9 +53,6 @@ services:
       - jarvis_auth:/app/auth_info_jarvis
       - jarvis_logs:/app/logs
       - jarvis_data:/app/data
-      - ./scripts:/app/scripts
-      - ./bot_volumetrao.json:/app/bot_volumetrao.json:ro
-      - ./engine:/app/engine
     depends_on:
       postgres:
         condition: service_healthy
@@ -97,9 +94,6 @@ services:
       - jarvis_auth:/app/auth_info_jarvis
       - jarvis_logs:/app/logs
       - jarvis_data:/app/data
-      - ./scripts:/app/scripts
-      - ./bot_volumetrao.json:/app/bot_volumetrao.json:ro
-      - ./engine:/app/engine
     depends_on:
       postgres:
         condition: service_healthy

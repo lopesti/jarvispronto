@@ -17,7 +17,7 @@
     "test:c3": "node tests/smoke/c3-auth.js",
     "test:c5": "node tests/smoke/c5-tenant.js",
     "test:all": "npm run test:smoke && npm test",
-    "lint": "node -e \"console.log('lint ok')\""
+    "lint": "node scripts/lint-engine.js"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
