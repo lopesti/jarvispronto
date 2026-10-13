@@ -1,0 +1,13 @@
+# Dev only — Docker Compose carrega automaticamente com docker-compose.yml
+# Em produção use: docker compose -f docker-compose.yml -f docker-compose.prod.yml ...
+services:
+  api:
+    volumes:
+      - ./engine:/app/engine
+      - ./scripts:/app/scripts
+      - ./bot_volumetrao.json:/app/bot_volumetrao.json:ro
+  worker:
+    volumes:
+      - ./engine:/app/engine
+      - ./scripts:/app/scripts
+      - ./bot_volumetrao.json:/app/bot_volumetrao.json:ro

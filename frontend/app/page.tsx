@@ -176,6 +176,9 @@ export default function LandingPage() {
       <section className="px-4 py-14 sm:px-6 sm:py-20">
         <div className="mx-auto max-w-6xl">
           <SectionHeader tag="Depoimentos" title="Quem usa, recomenda" />
+          <p className="mb-6 text-center text-xs text-muted-foreground">
+            Depoimentos ilustrativos. Nomes e números são fictícios e servem apenas como exemplo.
+          </p>
           <div className="grid gap-5 sm:gap-6 md:grid-cols-3">
             <Testimonial text="Aumentei minhas vendas em 40% no primeiro mês. O bot qualifica e eu só fecho." name="Renan S." role="Dono da VendeMais" initials="RS" />
             <Testimonial text="Minha equipe parou de responder pergunta repetida. Agora foca em fechar." name="Leilane M." role="Gerente Comercial" initials="LM" />

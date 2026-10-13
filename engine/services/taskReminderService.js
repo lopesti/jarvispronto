@@ -1,7 +1,7 @@
 /**
  * Cron: detecta tarefas de follow-up atrasadas e cria notificações no painel.
  * Env:
- *   TASK_REMINDER_CRON   — default "*/10 * * * *" (a cada 10 min)
+ *   TASK_REMINDER_CRON   — default "* /10 * * * *" (a cada 10 min)
  *   TASK_REMINDER_ENABLED — "0" desliga
  */
 const cron = require('node-cron');

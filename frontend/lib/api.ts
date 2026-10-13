@@ -490,15 +490,17 @@ export type UsageSnapshot = {
 
 export async function getPlans() {
   const { data } = await api.get("/api/plans");
-  return data.plans as Array<{
-    id: number;
+  const plans = (data?.plans ?? data ?? []) as Array<{
+    id?: number;
     code: string;
     name: string;
     price_monthly: number;
-    price_yearly: number;
+    price_yearly?: number;
     limits: PlanLimits;
     features: Record<string, unknown>;
+    sort_order?: number;
   }>;
+  return plans;
 }
 
 export async function getBillingSubscription() {
