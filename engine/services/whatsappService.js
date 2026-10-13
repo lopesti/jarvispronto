@@ -89,9 +89,12 @@ async function connectCompany(companyId, onMessage) {
       global.currentQR = qr;
       global.currentQRCompanyId = id;
       logger.info(`[WA][company=${id}] QR atualizado. GET /api/whatsapp/qr`);
-      try {
-        qrcode.generate(qr, { small: true });
-      } catch (_) {}
+      // S-04: nunca imprimir QR no log em produção
+      if (process.env.NODE_ENV !== 'production' && process.env.PRINT_WA_QR === '1') {
+        try {
+          qrcode.generate(qr, { small: true });
+        } catch (_) {}
+      }
       session.reconnectAttempts = 0;
     }
 
@@ -153,7 +156,7 @@ async function connectCompany(companyId, onMessage) {
   });
 
   sock.ev.on('messages.upsert', async ({ messages, type }) => {
-    if (type !== 'notify' && type !== 'append') return;
+    if (type !== 'notify') return; // F-10: ignora append (evita eco/histórico)
     const handler = session.onMessage;
     if (!handler) return;
 
@@ -172,10 +175,12 @@ async function connectCompany(companyId, onMessage) {
         if (!String(text).trim()) continue;
 
         if (isGroup) {
-          try {
-            const meta = await sock.groupMetadata(from);
-            processGroupMessage(id, meta.subject || from, msg.key.participant || from, text);
-          } catch (_) {}
+          if (process.env.ENABLE_GROUP_MONITOR === '1' || process.env.ENABLE_GROUP_MONITOR === 'true') {
+            try {
+              const meta = await sock.groupMetadata(from);
+              processGroupMessage(id, meta.subject || from, msg.key.participant || from, text);
+            } catch (_) {}
+          }
           continue;
         }
 
@@ -188,6 +193,21 @@ async function connectCompany(companyId, onMessage) {
           const { inc } = require('../utils/metrics');
           inc('messages_received_total', id);
         } catch (_) {}
+        // F-07: fila BullMQ quando habilitada
+        if (process.env.USE_MESSAGE_QUEUE === '1') {
+          try {
+            const { enqueueIncoming } = require('./messageQueue');
+            await enqueueIncoming({
+              companyId: id,
+              from,
+              text,
+              channel: 'whatsapp',
+            });
+            continue;
+          } catch (qErr) {
+            logger.warn(`[WA][company=${id}] enqueue fail, fallback inline: ${qErr.message}`);
+          }
+        }
         await handler(from, text, sock, id);
       } catch (err) {
         logger.error(`[WA][company=${id}] Erro mensagem: ${err.message}`);

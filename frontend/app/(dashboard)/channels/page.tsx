@@ -52,7 +52,7 @@ function WhatsQrModal({ onClose }: { onClose: () => void }) {
   const { data: status, isLoading } = useQuery({
     queryKey: ["whatsapp-status"],
     queryFn: getWhatsAppStatus,
-    refetchInterval: 3000,
+    refetchInterval: 30000,
   });
 
   const { data: qrData } = useQuery({
@@ -227,7 +227,7 @@ export default function ChannelsPage() {
   const { data, isLoading } = useQuery({
     queryKey: ["channels"],
     queryFn: getChannelStatus,
-    refetchInterval: 12000,
+    refetchInterval: 30000,
   });
 
   const waOk = !!data?.whatsapp?.connected;

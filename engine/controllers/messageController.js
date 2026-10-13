@@ -3,7 +3,7 @@ const { classifyStep, scoreForStep, getFunnelRules } = require('../utils/funnel'
 const conversationRepo = require('../repositories/conversationRepository');
 const messageRepo = require('../repositories/messageRepository');
 
-const HANDOFF_KEYWORDS = /\b(atendente|humano|pessoa|operador|falar com algu[eé]m)\b/i;
+const HANDOFF_KEYWORDS = /\b(atendente|humano|operador|falar com algu[eé]m)\b/i;
 
 /**
  * @param {string} from
@@ -11,7 +11,42 @@ const HANDOFF_KEYWORDS = /\b(atendente|humano|pessoa|operador|falar com algu[eé
  * @param {object} sock
  * @param {object|number} opts  companyId number or { rid, companyId }
  */
+
+/** F-09: lock por phone com TTL 30s — 2ª mensagem concurrent é ignorada */
+const phoneLocks = new Map();
+const LOCK_TTL_MS = 30000;
+
+async function withPhoneLock(phone, companyId, fn) {
+  const key = `${companyId}:${phone}`;
+  const existing = phoneLocks.get(key);
+  if (existing) {
+    const logger = require('../utils/logger');
+    logger.info(`[lock] ignorando mensagem concorrente ${key}`);
+    return null; // não processa em paralelo
+  }
+  const entry = { until: Date.now() + LOCK_TTL_MS };
+  phoneLocks.set(key, entry);
+  try {
+    return await fn();
+  } finally {
+    phoneLocks.delete(key);
+  }
+}
+
 async function handleMessage(from, text, sock, opts = {}) {
+  const _companyIdEarly =
+    typeof opts === 'number'
+      ? opts
+      : Number(opts?.companyId || opts?.user?.companyId) || null;
+  if (_companyIdEarly && from) {
+    return withPhoneLock(from, _companyIdEarly, () =>
+      handleMessageUnlocked(from, text, sock, opts)
+    );
+  }
+  return handleMessageUnlocked(from, text, sock, opts);
+}
+
+async function handleMessageUnlocked(from, text, sock, opts = {}) {
   const companyId =
     typeof opts === 'number' ? opts : Number(opts.companyId || opts) || 1;
   const rid = (typeof opts === 'object' && opts.rid) || `msg_${Date.now().toString(36)}`;
@@ -77,6 +112,13 @@ async function handleMessage(from, text, sock, opts = {}) {
         `Auto-handoff: keyword ou score ${score}. Step ${nextStep}.`,
         companyId
       );
+      try {
+        const { query } = require('../models/database');
+        await query(
+          `INSERT INTO billing_events (company_id, type, payload) VALUES ($1, 'handoff.triggered', $2)`,
+          [companyId, JSON.stringify({ phone, score, step: nextStep, rid })]
+        );
+      } catch (_) {}
     }
 
     if (botMode === 'human' || needsHuman) {
@@ -118,6 +160,8 @@ async function handleMessage(from, text, sock, opts = {}) {
     }
 
     if (sock) {
+      // F-10: delay humano 800–1800ms
+      await new Promise((r) => setTimeout(r, 800 + Math.floor(Math.random() * 1000)));
       await sock.sendMessage(phone, { text: String(responseText) });
       try {
         const { inc } = require('../utils/metrics');
@@ -135,6 +179,26 @@ async function handleMessage(from, text, sock, opts = {}) {
     });
 
     logger.info(`[${rid}][company=${companyId}] OK step=${nextStep} score=${score}`);
+
+    // F-07: usage + automações
+    try {
+      const usageService = require('../services/usageService');
+      await usageService.increment(companyId, 'conversations', 0); // noop se já conta
+      await usageService.increment(companyId, 'messages', 1);
+    } catch (_) {}
+    try {
+      const { runAutomations } = require('../services/automationExecutor');
+      await runAutomations({
+        companyId,
+        phone,
+        score,
+        step: nextStep,
+        needsHuman,
+        body,
+      });
+    } catch (autoErr) {
+      logger.warn(`[${rid}] automation: ${autoErr.message}`);
+    }
   } catch (error) {
     logger.error(`[${rid}] Erro: ${error.message}`);
     try {

@@ -14,7 +14,7 @@ class ConversationController {
 
       // BUG-043: aceita ?limit=N para reduzir payload em telas que so querem "ultimas X"
       const rawLimit = Number(req.query.limit);
-      const limit = Number.isFinite(rawLimit) && rawLimit > 0 ? Math.min(rawLimit, 500) : null;
+      const limit = Number.isFinite(rawLimit) && rawLimit > 0 ? Math.min(rawLimit, 200) : 100; // O-06: default 100, max 200
 
       let sql = `
         SELECT
@@ -64,10 +64,8 @@ class ConversationController {
       }
 
       sql += ` ORDER BY c.needs_human DESC, c.updated_at DESC`;
-      if (limit) {
-        params.push(limit);
-        sql += ` LIMIT $${p++}`;
-      }
+      params.push(limit);
+      sql += ` LIMIT $${p++}`;
 
       const result = await pool.query(sql, params);
       res.json(result.rows);
@@ -333,6 +331,29 @@ class ConversationController {
         return res.status(400).json({ message: 'Mensagem e obrigatoria' });
       }
 
+      // F-15: não marca como enviado se socket offline
+      const whatsappService = require('../services/whatsappService');
+      const sock = whatsappService.getSock ? whatsappService.getSock(companyId) : null;
+      const state = whatsappService.getState ? whatsappService.getState(companyId) : {};
+      if (!sock || (state && state.connected === false && state.state !== 'open')) {
+        return res.status(503).json({
+          error: 'WhatsApp desconectado',
+          code: 'WA_OFFLINE',
+          message: 'Conecte o WhatsApp em Canais antes de enviar.',
+        });
+      }
+
+      try {
+        await sock.sendMessage(id, { text: message });
+      } catch (waErr) {
+        logger.warn('WhatsApp send falhou: ' + waErr.message);
+        return res.status(503).json({
+          error: 'Falha ao enviar no WhatsApp',
+          code: 'WA_SEND_FAILED',
+          message: waErr.message,
+        });
+      }
+
       await pool.query(
         `INSERT INTO conversations (phone, channel, company_id, updated_at)
          VALUES ($1, 'whatsapp', $2, NOW())
@@ -353,15 +374,6 @@ class ConversationController {
            WHERE phone = $1 AND company_id = $2`,
           [id, companyId, userId]
         );
-      }
-
-      try {
-        const whatsappService = require('../services/whatsappService');
-        const sock = whatsappService.getSock(companyId);
-        if (sock) await sock.sendMessage(id, { text: message });
-        else logger.warn(`[sendMessage] Sem socket para company=${companyId}`);
-      } catch (waErr) {
-        logger.warn('WhatsApp send falhou: ' + waErr.message);
       }
 
       res.json({ ok: true });

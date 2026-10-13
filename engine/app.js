@@ -18,6 +18,10 @@ if (missing.length) {
 }
 
 const app = express();
+const cookieParser = require('cookie-parser');
+app.use(cookieParser());
+try { app.use(require('helmet')({ contentSecurityPolicy: false })); } catch (_) {}
+app.use(require('./middlewares/requestId'));
 const PORT = process.env.PORT || 3000;
 
 // ═══════════════════════════════════════════════════════════════
@@ -101,7 +105,8 @@ app.use('/api/users', authMiddleware, require('./routes/users'));
 app.use('/api/produtos', authMiddleware, require('./routes/produtos'));
 app.use('/api/conversations', authMiddleware, require('./routes/conversations'));
 app.use('/api/etiquetas', authMiddleware, require('./routes/etiquetas'));
-app.use('/api/simulation', authMiddleware, require('./routes/simulation'));
+// F-12: simulation desabilitada
+// app.use('/api/simulation', authMiddleware, require('./routes/simulation'));
 app.use('/api/channels', authMiddleware, require('./routes/channels'));
 app.use('/api/companies', authMiddleware, require('./routes/companies'));
 app.use('/api/whatsapp', authMiddleware, require('./routes/whatsapp'));
@@ -116,12 +121,33 @@ app.use('/api/admin/users', authMiddleware, requireSuperadmin, require('./routes
 app.use('/api', require('./routes/billing'));
 app.use('/api/crm', require('./routes/crm'));
 
-app.use('/internal', require('./routes/internal'));
+if (process.env.NODE_ENV !== 'production' && process.env.ENABLE_INTERNAL_ROUTES !== '0') {
+    app.use('/internal', require('./routes/internal'));
+} else if (process.env.ENABLE_INTERNAL_ROUTES === '1') {
+    app.use('/internal', require('./routes/internal'));
+} else {
+    const loggerBoot = require('./utils/logger');
+    loggerBoot.info('[boot] /internal desabilitado (produção)');
+}
 
 // ═══════════════════════════════════════════════════════════════
 //  Health check + Metrics
 // ═══════════════════════════════════════════════════════════════
 app.get('/metrics', (req, res) => {
+    const crypto = require('crypto');
+    const expected = process.env.METRICS_TOKEN || process.env.INTERNAL_SIM_TOKEN || '';
+    const got = req.headers['x-metrics-token'] || req.query.token || '';
+    if (!expected) {
+        if (process.env.NODE_ENV === 'production') {
+            return res.status(503).json({ error: 'METRICS_TOKEN nao configurado' });
+        }
+    } else {
+        const a = Buffer.from(String(got));
+        const b = Buffer.from(String(expected));
+        if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) {
+            return res.status(401).json({ error: 'Unauthorized' });
+        }
+    }
     const { getMetrics } = require('./utils/metrics');
     const companyId = req.query.companyId ? Number(req.query.companyId) : null;
     res.set('Content-Type', 'text/plain; version=0.0.4');
@@ -256,6 +282,12 @@ const { runMigrations } = require('./models/migrate');
                 startTaskReminderCron();
             } catch (e) {
                 logger.warn('[boot] task reminder: ' + e.message);
+            }
+            try {
+                const { startHandoffReturnCron } = require('./services/handoffReturnService');
+                startHandoffReturnCron();
+            } catch (e) {
+                logger.warn('[boot] handoff return: ' + e.message);
             }
         });
     } catch (err) {

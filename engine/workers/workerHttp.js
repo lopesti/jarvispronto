@@ -18,7 +18,10 @@ const INTERNAL_TOKEN = process.env.INTERNAL_SIM_TOKEN || '';
 
 function authCheck(req, res, next) {
   const got = req.headers['x-internal-token'];
-  if (got !== INTERNAL_TOKEN) {
+  const crypto = require('crypto');
+  const a = Buffer.from(String(got || ''));
+  const b = Buffer.from(String(INTERNAL_TOKEN || ''));
+  if (!INTERNAL_TOKEN || a.length !== b.length || !crypto.timingSafeEqual(a, b)) {
     return res.status(401).json({ error: 'Token interno invalido' });
   }
   next();
@@ -41,6 +44,26 @@ async function startWorkerHttp() {
   // ─── Rota pública de healthcheck (Docker/K8s) — NÃO exige token ───
   // Precisa vir ANTES do authCheck. BUG-073: healthcheck do worker.
   app.get('/health', (req, res) => res.status(200).json({ status: 'ok' }));
+
+  app.get('/metrics', (req, res) => {
+    const crypto = require('crypto');
+    const expected = process.env.METRICS_TOKEN || process.env.INTERNAL_SIM_TOKEN || '';
+    const got = req.headers['x-metrics-token'] || req.query.token || '';
+    if (expected) {
+      const a = Buffer.from(String(got));
+      const b = Buffer.from(String(expected));
+      if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) {
+        return res.status(401).json({ error: 'Unauthorized' });
+      }
+    }
+    try {
+      const { getMetrics } = require('../utils/metrics');
+      res.set('Content-Type', 'text/plain; version=0.0.4');
+      res.send(getMetrics(null));
+    } catch (e) {
+      res.status(500).json({ error: e.message });
+    }
+  });
 
   // ─── Daqui pra baixo tudo exige token interno ───
   app.use(authCheck);

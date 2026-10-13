@@ -56,14 +56,14 @@ export default function ConversationsPage() {
   const { data: chats = [], isLoading } = useQuery({
     queryKey: ["conversations", filter],
     queryFn: () => getConversations({ filter }),
-    refetchInterval: 8000,
+    refetchInterval: 30000,
   });
 
   // Query secundaria pra contadores (pega TODAS as conversas)
   const { data: allChats = [] } = useQuery({
     queryKey: ["conversations-counts"],
     queryFn: () => getConversations({}),
-    refetchInterval: 15000,
+    refetchInterval: 30000,
   });
 
   const list = Array.isArray(chats) ? chats : [];
@@ -81,7 +81,7 @@ export default function ConversationsPage() {
       return await getConversation(selectedPhone);
     },
     enabled: !!selectedPhone,
-    refetchInterval: 5000,
+    refetchInterval: 15000,
   });
 
   const invalidate = () => {

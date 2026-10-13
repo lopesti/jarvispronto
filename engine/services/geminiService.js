@@ -261,8 +261,8 @@ async function generateWithGroq(userInput, history, systemPrompt) {
   const response = await groq.chat.completions.create({
     model: 'openai/gpt-oss-120b',
     messages,
-    max_tokens: 200,
-    temperature: 0.85,
+    max_tokens: 500,
+    temperature: 0.4,
   });
 
   return response.choices[0].message.content;
@@ -270,7 +270,7 @@ async function generateWithGroq(userInput, history, systemPrompt) {
 
 async function generateWithGemini(userInput, history, systemPrompt) {
   const model = genAI.getGenerativeModel({
-    model: 'gemini-2.0-flash-exp',
+    model: 'gemini-2.0-flash',
     systemInstruction: systemPrompt || botConfig.systemPrompt,
   });
 

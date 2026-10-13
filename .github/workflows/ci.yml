@@ -1,4 +1,4 @@
-name: CI
+﻿name: CI
 
 on:
   push:
@@ -53,8 +53,19 @@ jobs:
           cache: 'npm'
       - run: npm ci
 
-      - name: Unit tests
+      - name: Unit tests (Jest)
         run: npm test
+        env:
+          JWT_SECRET: test_secret_min_16_chars_ok
+          DATABASE_URL: postgres://test:test@localhost:5432/test
+          NODE_ENV: test
+
+      - name: Testes standalone (checks)
+        run: |
+          node tests/unit/handoffKeywords.check.js
+          node tests/unit/webhook-token.check.js
+          node tests/unit/funnel-acento.check.js
+          node tests/unit/refresh-shape.check.js
         env:
           JWT_SECRET: test_secret_min_16_chars_ok
           DATABASE_URL: postgres://test:test@localhost:5432/test

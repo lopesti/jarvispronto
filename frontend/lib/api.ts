@@ -5,11 +5,16 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
 export const api = axios.create({
   baseURL: API_URL,
   headers: { "Content-Type": "application/json" },
+  withCredentials: true, // S-04: envia cookies httpOnly
 });
 
 api.interceptors.request.use((config) => {
   if (typeof window !== "undefined") {
-    const token = localStorage.getItem("jarvis_token");
+    // Preferência: cookie httpOnly (automático via withCredentials).
+    // Fallback Bearer em sessionStorage (não persiste entre abas fechadas como localStorage).
+    const token =
+      sessionStorage.getItem("jarvis_token") ||
+      localStorage.getItem("jarvis_token");
     if (token) config.headers.Authorization = `Bearer ${token}`;
   }
   return config;
@@ -18,21 +23,40 @@ api.interceptors.request.use((config) => {
 let refreshing: Promise<string | null> | null = null;
 
 async function refreshAccessToken(): Promise<string | null> {
-  const refreshToken = localStorage.getItem("jarvis_refresh");
-  if (!refreshToken) return null;
+  // S-04: tenta cookie httpOnly primeiro (body vazio); fallback session/local
+  const refreshToken =
+    (typeof window !== "undefined" &&
+      (sessionStorage.getItem("jarvis_refresh") ||
+        localStorage.getItem("jarvis_refresh"))) ||
+    undefined;
   try {
-    const { data } = await axios.post(`${API_URL}/auth/refresh`, {
-      refreshToken,
-    });
+    const { data } = await axios.post(
+      `${API_URL}/auth/refresh`,
+      refreshToken ? { refreshToken } : {},
+      { withCredentials: true }
+    );
     const access = data.accessToken || data.token;
-    if (access) localStorage.setItem("jarvis_token", access);
-    if (data.refreshToken) localStorage.setItem("jarvis_refresh", data.refreshToken);
-    if (data.user) localStorage.setItem("jarvis_user", JSON.stringify(data.user));
+    if (access && typeof window !== "undefined") {
+      sessionStorage.setItem("jarvis_token", access);
+      localStorage.removeItem("jarvis_token"); // migra para fora do localStorage
+    }
+    if (data.refreshToken && typeof window !== "undefined") {
+      sessionStorage.setItem("jarvis_refresh", data.refreshToken);
+      localStorage.removeItem("jarvis_refresh");
+    }
+    if (data.user && typeof window !== "undefined") {
+      sessionStorage.setItem("jarvis_user", JSON.stringify(data.user));
+      localStorage.setItem("jarvis_user", JSON.stringify(data.user)); // UI legada
+    }
     return access;
   } catch {
-    localStorage.removeItem("jarvis_token");
-    localStorage.removeItem("jarvis_refresh");
-    localStorage.removeItem("jarvis_user");
+    if (typeof window !== "undefined") {
+      sessionStorage.removeItem("jarvis_token");
+      sessionStorage.removeItem("jarvis_refresh");
+      localStorage.removeItem("jarvis_token");
+      localStorage.removeItem("jarvis_refresh");
+      localStorage.removeItem("jarvis_user");
+    }
     return null;
   }
 }
@@ -135,7 +159,10 @@ function storeAuth(data: {
   user?: AuthUser;
 }) {
   const access = data.accessToken || data.token;
-  if (access) localStorage.setItem("jarvis_token", access);
+  if (access && typeof window !== "undefined") {
+    sessionStorage.setItem("jarvis_token", access);
+    localStorage.removeItem("jarvis_token");
+  }
   if (data.refreshToken) localStorage.setItem("jarvis_refresh", data.refreshToken);
   if (data.user) localStorage.setItem("jarvis_user", JSON.stringify(data.user));
 }
@@ -169,6 +196,9 @@ export async function logout() {
   } catch {
     /* ignore */
   }
+  sessionStorage.removeItem("jarvis_token");
+  sessionStorage.removeItem("jarvis_refresh");
+  sessionStorage.removeItem("jarvis_user");
   localStorage.removeItem("jarvis_token");
   localStorage.removeItem("jarvis_refresh");
   localStorage.removeItem("jarvis_user");
