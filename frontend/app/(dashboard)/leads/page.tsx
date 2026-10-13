@@ -13,7 +13,7 @@ export default function LeadsPage() {
       const result = await getLeads();
       return result;
     },
-    refetchInterval: 10000,
+    refetchInterval: 30000,
   });
 
   const list = Array.isArray(leads) ? leads : [];

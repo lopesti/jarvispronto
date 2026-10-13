@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useState } from "react";
 import { Header } from "@/components/layout/header";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useApiMutation } from "@/lib/use-api-mutation";
@@ -22,16 +22,6 @@ function shortName(c: Conversation) {
     .replace(/^facebook:/, "FB ");
 }
 
-function getTargetStepByScore(score: number = 0): string {
-  if (score >= 100) return "vendido";
-  if (score >= 80) return "fechamento";
-  if (score >= 55) return "interesse";
-  if (score >= 45) return "objecao";
-  if (score >= 30) return "qualificacao";
-  if (score <= 0) return "perdido";
-  return "inicio";
-}
-
 // Cores por etapa (borda superior + header)
 const STEP_COLORS: Record<string, { border: string; badge: string }> = {
   inicio:       { border: "border-t-slate-500",   badge: "bg-slate-500/15 text-slate-300" },
@@ -49,7 +39,7 @@ export default function PipelinePage() {
   const { data: conversations = [], isLoading } = useQuery({
     queryKey: ["conversations"],
     queryFn: () => getConversations(),
-    refetchInterval: 5000,
+    refetchInterval: 30000,
   });
 
   const list = Array.isArray(conversations) ? conversations : [];
@@ -59,38 +49,6 @@ export default function PipelinePage() {
       updateStep(phone, step),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["conversations"] }),
   });
-
-  const pendingUpdates = useRef<Set<string>>(new Set());
-  const failedUpdates = useRef<Set<string>>(new Set());
-
-  useEffect(() => {
-    if (!list.length) return;
-
-    list.forEach((lead) => {
-      const targetStep = getTargetStepByScore(lead.lead_score);
-      const currentStep = lead.current_step || "inicio";
-      const key = `${lead.phone}:${targetStep}`;
-
-      if (failedUpdates.current.has(key)) return;
-      if (currentStep === targetStep) return;
-      if (pendingUpdates.current.has(lead.phone)) return;
-
-      pendingUpdates.current.add(lead.phone);
-
-      moveMut.mutate(
-        { phone: lead.phone, step: targetStep },
-        {
-          onSuccess: () => {
-            pendingUpdates.current.delete(lead.phone);
-          },
-          onError: () => {
-            pendingUpdates.current.delete(lead.phone);
-            failedUpdates.current.add(key);
-          },
-        }
-      );
-    });
-  }, [list, moveMut]);
 
   const byStep = FUNNEL_STEPS.map((s) => ({
     ...s,

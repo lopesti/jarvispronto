@@ -1,17 +1,15 @@
 const crypto = require('crypto');
 
 /**
- * P1 item 18 — injeta request-id em toda requisição e propaga no header de resposta.
+ * O-04 / F-07: gera X-Request-Id e propaga em req.id / res header.
  */
-function requestIdMiddleware(req, res, next) {
+module.exports = function requestIdMiddleware(req, res, next) {
   const incoming = req.headers['x-request-id'];
   const id =
-    typeof incoming === 'string' && incoming.length > 0 && incoming.length < 64
-      ? incoming
-      : crypto.randomBytes(8).toString('hex');
-  req.requestId = id;
+    (typeof incoming === 'string' && incoming.trim()) ||
+    crypto.randomUUID();
+  req.id = id;
+  req.rid = id;
   res.setHeader('X-Request-Id', id);
   next();
-}
-
-module.exports = { requestIdMiddleware };
+};

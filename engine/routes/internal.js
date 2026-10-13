@@ -14,7 +14,11 @@ function requireInternalToken(req, res, next) {
         return res.status(503).json({ error: 'Simulador desabilitado (token não configurado)' });
     }
     const token = req.headers['x-internal-token'];
-    if (!token || token !== process.env.INTERNAL_SIM_TOKEN) {
+    const crypto = require('crypto');
+    const expected = process.env.INTERNAL_SIM_TOKEN || '';
+    const a = Buffer.from(String(token || ''));
+    const b = Buffer.from(String(expected));
+    if (!expected || a.length !== b.length || !crypto.timingSafeEqual(a, b)) {
         return res.status(401).json({ error: 'Token interno inválido' });
     }
     next();

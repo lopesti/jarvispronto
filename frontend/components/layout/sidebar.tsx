@@ -66,19 +66,19 @@ export function Sidebar() {
   const { data: channels } = useQuery({
     queryKey: ["channels"],
     queryFn: getChannelStatus,
-    refetchInterval: 15000,
+    refetchInterval: 60000,
   });
 
   const { data: needsList = [] } = useQuery({
     queryKey: ["conversations", "needs_human"],
     queryFn: () => getConversations({ filter: "needs_human" }),
-    refetchInterval: 10000,
+    refetchInterval: 60000,
   });
 
   const { data: tickets = [] } = useQuery({
     queryKey: ["support-tickets"],
     queryFn: getTickets,
-    refetchInterval: 15000,
+    refetchInterval: 60000,
   });
 
   const wa = channels?.whatsapp;

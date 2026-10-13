@@ -59,6 +59,10 @@ function extractKeywords(message) {
 }
 
 function processGroupMessage(companyId, groupName, sender, message) {
+  if (process.env.ENABLE_GROUP_MONITOR !== '1' && process.env.ENABLE_GROUP_MONITOR !== 'true') {
+    return;
+  }
+
   if (!companyId || Number.isNaN(Number(companyId))) {
     return;
   }

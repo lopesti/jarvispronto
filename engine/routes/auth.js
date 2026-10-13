@@ -15,6 +15,32 @@ const {
   comparePassword,
 } = require('../services/authService');
 
+function setAuthCookies(res, accessToken, refreshToken) {
+  const isProd = process.env.NODE_ENV === 'production';
+  const common = {
+    httpOnly: true,
+    secure: isProd,
+    sameSite: 'strict',
+    path: '/',
+  };
+  // access ~ 15 min (ou o que o JWT definir)
+  res.cookie('jarvis_access', accessToken, { ...common, maxAge: 15 * 60 * 1000 });
+  // refresh ~ 7 dias
+  if (refreshToken) {
+    res.cookie('jarvis_refresh', refreshToken, { ...common, maxAge: 7 * 24 * 60 * 60 * 1000 });
+  }
+}
+
+function clearAuthCookies(res) {
+  res.clearCookie('jarvis_access', { path: '/' });
+  res.clearCookie('jarvis_refresh', { path: '/' });
+}
+
+
+const loginAttempts = new Map(); // email -> { count, until }
+const LOCKOUT_MAX = 8;
+const LOCKOUT_MS = 15 * 60 * 1000;
+
 function publicUser(row) {
   return {
     id: row.id,
@@ -108,6 +134,7 @@ router.post('/register', async (req, res) => {
     // F-01: createRefreshToken devolve { raw, familyId } — extrai raw
     const refreshOut = await createRefreshToken(user.id);
 
+    setAuthCookies(res, accessToken, refreshOut.raw);
     res.status(201).json({
       message: 'Usuario criado com sucesso',
       token: accessToken,
@@ -118,7 +145,7 @@ router.post('/register', async (req, res) => {
     });
   } catch (error) {
     logger.error('Erro no registro: ' + error.message);
-    res.status(500).json({ error: 'Erro ao criar usuario' });
+    res.status(500).json({ error: 'Erro interno. Tente novamente.' });
   }
 });
 
@@ -131,25 +158,41 @@ router.post('/login', async (req, res) => {
     }
 
     const normalizedEmail = String(email).trim().toLowerCase();
+    const attempt = loginAttempts.get(normalizedEmail);
+    if (attempt && attempt.until > Date.now()) {
+      return res.status(429).json({ error: 'Muitas tentativas. Aguarde alguns minutos.' });
+    }
     const result = await query('SELECT * FROM users WHERE email = $1', [
       normalizedEmail,
     ]);
 
     if (result.rows.length === 0) {
+      const c = (attempt?.count || 0) + 1;
+      loginAttempts.set(normalizedEmail, {
+        count: c,
+        until: c >= LOCKOUT_MAX ? Date.now() + LOCKOUT_MS : 0,
+      });
       return res.status(401).json({ error: 'Credenciais invalidas' });
     }
 
     const user = result.rows[0];
     const isValid = await comparePassword(password, user.password);
     if (!isValid) {
+      const c = (attempt?.count || 0) + 1;
+      loginAttempts.set(normalizedEmail, {
+        count: c,
+        until: c >= LOCKOUT_MAX ? Date.now() + LOCKOUT_MS : 0,
+      });
       return res.status(401).json({ error: 'Credenciais invalidas' });
     }
+    loginAttempts.delete(normalizedEmail);
 
     const accessToken = signAccessToken(user);
 
     // F-01: createRefreshToken devolve { raw, familyId } — extrai raw
     const refreshOut = await createRefreshToken(user.id);
 
+    setAuthCookies(res, accessToken, refreshOut.raw);
     res.json({
       token: accessToken,
       accessToken,
@@ -159,18 +202,22 @@ router.post('/login', async (req, res) => {
     });
   } catch (error) {
     logger.error('Erro no login: ' + error.message);
-    res.status(500).json({ error: 'Erro ao fazer login' });
+    res.status(500).json({ error: 'Erro interno. Tente novamente.' });
   }
 });
 
 router.post('/refresh', async (req, res) => {
   try {
-    const { refreshToken } = req.body || {};
+    // S-04: aceita body ou cookie httpOnly
+    const refreshToken =
+      (req.body && req.body.refreshToken) ||
+      (req.cookies && req.cookies.jarvis_refresh) ||
+      null;
     if (!refreshToken) {
       return res.status(400).json({ error: 'refreshToken obrigatorio' });
     }
-    // rotateRefreshToken ja devolve { accessToken, refreshToken (string), user }
     const out = await rotateRefreshToken(refreshToken);
+    setAuthCookies(res, out.accessToken, out.refreshToken);
     res.json({
       token: out.accessToken,
       accessToken: out.accessToken,
@@ -180,16 +227,22 @@ router.post('/refresh', async (req, res) => {
     });
   } catch (error) {
     logger.warn('Refresh falhou: ' + error.message);
+    clearAuthCookies(res);
     res.status(error.status || 401).json({ error: error.message || 'Nao autorizado' });
   }
 });
 
 router.post('/logout', async (req, res) => {
   try {
-    const { refreshToken } = req.body || {};
+    const refreshToken =
+      (req.body && req.body.refreshToken) ||
+      (req.cookies && req.cookies.jarvis_refresh) ||
+      null;
     await revokeRefreshToken(refreshToken);
+    clearAuthCookies(res);
     res.json({ message: 'Logout realizado' });
   } catch (error) {
+    clearAuthCookies(res);
     res.json({ message: 'Logout realizado' });
   }
 });
