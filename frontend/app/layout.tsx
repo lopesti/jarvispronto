@@ -6,6 +6,20 @@ import { AppToaster } from "@/components/ui/toaster";
 export const metadata: Metadata = {
   title: "JARVIS Comercial",
   description: "Vendas com IA no WhatsApp, Instagram e marketplaces",
+  applicationName: "JARVIS",
+  manifest: "/manifest.webmanifest",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "JARVIS",
+  },
+  icons: {
+    icon: [
+      { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icon-512.png", sizes: "512x512", type: "image/png" },
+    ],
+    apple: [{ url: "/icon-192.png", sizes: "192x192", type: "image/png" }],
+  },
 };
 
 export const viewport: Viewport = {

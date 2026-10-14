@@ -1,69 +1,74 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 
-/**
- * BUG-040 — valida o token (expiracao) antes de liberar o guard.
- *
- * Antes: so checava se `jarvis_token` existia no localStorage.
- * Agora:
- *  1. Se nao tem token -> /login
- *  2. Se token expirado E refresh valido -> renova via /auth/refresh
- *  3. Se token expirado E refresh invalido -> /login
- *  4. Se token valido -> libera
- */
-
-function decodeJwtPayload(token: string): { exp?: number } | null {
-  try {
-    const parts = token.split(".");
-    if (parts.length !== 3) return null;
-    // base64url -> base64
-    const b64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
-    const padded = b64 + "=".repeat((4 - (b64.length % 4)) % 4);
-    const json = atob(padded);
-    return JSON.parse(json);
-  } catch {
-    return null;
-  }
-}
-
-function isTokenValid(token: string): boolean {
-  const payload = decodeJwtPayload(token);
-  if (!payload) return false;
-  if (!payload.exp) return true; // sem exp = deixa passar
-  // margem de 5s pra evitar corrida
-  return Date.now() < payload.exp * 1000 - 5000;
-}
-
-function clearAuthStorage() {
+function clearAuthStorage(): void {
   if (typeof window === "undefined") return;
+  sessionStorage.removeItem("jarvis_token");
+  sessionStorage.removeItem("jarvis_refresh");
   localStorage.removeItem("jarvis_token");
   localStorage.removeItem("jarvis_refresh");
   localStorage.removeItem("jarvis_user");
 }
 
-async function tryRefresh(refreshToken: string): Promise<boolean> {
+async function checkMe(): Promise<boolean> {
   try {
-    const res = await fetch("/auth/refresh", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ refreshToken }),
+    const res = await fetch("/auth/me", {
+      credentials: "include",
+      headers: { Accept: "application/json" },
     });
-    if (!res.ok) return false;
-    const data = await res.json();
-    const access = data.accessToken || data.token;
-    if (!access) return false;
-    localStorage.setItem("jarvis_token", access);
-    if (data.refreshToken) localStorage.setItem("jarvis_refresh", data.refreshToken);
-    if (data.user) localStorage.setItem("jarvis_user", JSON.stringify(data.user));
-    return true;
-  } catch {
+    if (res.ok) {
+      const data = await res.json();
+      if (data && data.user) {
+        try {
+          sessionStorage.setItem("jarvis_user", JSON.stringify(data.user));
+          localStorage.setItem("jarvis_user", JSON.stringify(data.user));
+        } catch (_) {}
+        return true;
+      }
+    }
+    return false;
+  } catch (_) {
     return false;
   }
 }
 
-export function AuthGuard({ children }: { children: React.ReactNode }) {
+async function tryRefresh(): Promise<boolean> {
+  const refreshToken =
+    (typeof window !== "undefined" &&
+      (sessionStorage.getItem("jarvis_refresh") ||
+        localStorage.getItem("jarvis_refresh"))) ||
+    undefined;
+  try {
+    const res = await fetch("/auth/refresh", {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(refreshToken ? { refreshToken } : {}),
+    });
+    if (!res.ok) return false;
+    const data = await res.json();
+    const access = data.accessToken || data.token;
+    if (access && typeof window !== "undefined") {
+      sessionStorage.setItem("jarvis_token", access);
+      localStorage.removeItem("jarvis_token");
+    }
+    if (data.refreshToken && typeof window !== "undefined") {
+      sessionStorage.setItem("jarvis_refresh", data.refreshToken);
+      localStorage.removeItem("jarvis_refresh");
+    }
+    if (data.user && typeof window !== "undefined") {
+      sessionStorage.setItem("jarvis_user", JSON.stringify(data.user));
+      localStorage.setItem("jarvis_user", JSON.stringify(data.user));
+    }
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
+export function AuthGuard({ children }: { children: ReactNode }) {
   const router = useRouter();
   const [ok, setOk] = useState(false);
 
@@ -71,33 +76,23 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     let cancelled = false;
 
     (async () => {
-      const token = localStorage.getItem("jarvis_token");
+      let authenticated = await checkMe();
+      if (cancelled) return;
 
-      // 1. Sem token -> login
-      if (!token) {
-        if (!cancelled) router.replace("/login");
-        return;
-      }
-
-      // 2. Token valido -> libera
-      if (isTokenValid(token)) {
-        if (!cancelled) setOk(true);
-        return;
-      }
-
-      // 3. Token expirado: tenta refresh
-      const refreshToken = localStorage.getItem("jarvis_refresh");
-      if (refreshToken) {
-        const refreshed = await tryRefresh(refreshToken);
+      if (!authenticated) {
+        const refreshed = await tryRefresh();
         if (cancelled) return;
         if (refreshed) {
-          setOk(true);
-          return;
+          authenticated = await checkMe();
+          if (cancelled) return;
         }
       }
 
-      // 4. Nada funcionou -> limpa e vai pro login
-      if (cancelled) return;
+      if (authenticated) {
+        setOk(true);
+        return;
+      }
+
       clearAuthStorage();
       router.replace("/login");
     })();
@@ -107,8 +102,6 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     };
   }, [router]);
 
-  // Listener global: se o api.ts detectar 401 irrecuperavel em qualquer lugar,
-  // ele redireciona com window.location. Aqui so cobrimos o boot.
   useEffect(() => {
     const onStorage = (e: StorageEvent) => {
       if (e.key === "jarvis_token" && !e.newValue) {
