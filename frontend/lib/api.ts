@@ -163,8 +163,14 @@ function storeAuth(data: {
     sessionStorage.setItem("jarvis_token", access);
     localStorage.removeItem("jarvis_token");
   }
-  if (data.refreshToken) localStorage.setItem("jarvis_refresh", data.refreshToken);
-  if (data.user) localStorage.setItem("jarvis_user", JSON.stringify(data.user));
+  if (data.refreshToken) {
+    sessionStorage.setItem("jarvis_refresh", data.refreshToken);
+    localStorage.removeItem("jarvis_refresh");
+  }
+  if (data.user) {
+    sessionStorage.setItem("jarvis_user", JSON.stringify(data.user));
+    localStorage.setItem("jarvis_user", JSON.stringify(data.user)); // preferencias UI legadas
+  }
 }
 
 export async function login(email: string, password: string) {
@@ -190,7 +196,9 @@ export async function register(name: string, email: string, password: string) {
 }
 
 export async function logout() {
-  const refreshToken = localStorage.getItem("jarvis_refresh");
+  const refreshToken =
+    sessionStorage.getItem("jarvis_refresh") ||
+    localStorage.getItem("jarvis_refresh");
   try {
     await api.post("/auth/logout", { refreshToken });
   } catch {

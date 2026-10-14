@@ -1,6 +1,6 @@
 {
   "name": "jarvispronto",
-  "version": "1.15.0",
+  "version": "1.15.2",
   "license": "ISC",
   "description": "JARVIS Comercial \u2014 Escova Alisadora 3 em 1 \u00b7 WhatsApp \u00b7 IA \u00b7 Nginx",
   "main": "engine/app.js",
@@ -44,7 +44,9 @@
   "devDependencies": {
     "jest": "^29.7.0",
     "supertest": "^7.0.0",
-    "pino-pretty": "^13.0.0"
+    "pino-pretty": "^13.0.0",
+    "docx": "^9.5.0",
+    "csv-parser": "^3.0.0"
   },
   "jest": {
     "testEnvironment": "node",
@@ -68,5 +70,6 @@
         "statements": 30
       }
     }
-  }
+  },
+  "optionalDependencies": {}
 }

@@ -105,8 +105,7 @@ app.use('/api/users', authMiddleware, require('./routes/users'));
 app.use('/api/produtos', authMiddleware, require('./routes/produtos'));
 app.use('/api/conversations', authMiddleware, require('./routes/conversations'));
 app.use('/api/etiquetas', authMiddleware, require('./routes/etiquetas'));
-// F-12: simulation desabilitada
-// app.use('/api/simulation', authMiddleware, require('./routes/simulation'));
+// F-12: engine/simulation e routes/simulation removidos (código morto)
 app.use('/api/channels', authMiddleware, require('./routes/channels'));
 app.use('/api/companies', authMiddleware, require('./routes/companies'));
 app.use('/api/whatsapp', authMiddleware, require('./routes/whatsapp'));
