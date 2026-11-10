@@ -1,0 +1,193 @@
+services:
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: jarvis-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./nginx/certs:/etc/nginx/certs:ro
+      - certbot_www:/var/www/certbot:ro
+    depends_on:
+      - api
+      - frontend
+    networks:
+      - jarvis-net
+
+  certbot:
+    image: certbot/certbot:latest
+    container_name: jarvis-certbot
+    volumes:
+      - certbot_www:/var/www/certbot
+      - certbot_etc:/etc/letsencrypt
+    profiles:
+      - certbot
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: jarvis-api
+    restart: unless-stopped
+    expose:
+      - "3000"
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      TRUST_PROXY: "1"
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL must be set in .env}
+      PGHOST: postgres
+      PGPORT: 5432
+      PGUSER: ${POSTGRES_USER:-jarvis}
+      PGPASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env}
+      PGDATABASE: ${POSTGRES_DB:-jarvispronto}
+      REDIS_URL: redis://redis:6379
+      USE_MESSAGE_QUEUE: ${USE_MESSAGE_QUEUE:-0}
+      WORKER_INTERNAL_URL: http://worker:3002
+    volumes:
+      - jarvis_auth:/app/auth_info_jarvis
+      - jarvis_logs:/app/logs
+      - jarvis_data:/app/data
+      - ./scripts:/app/scripts
+      - ./bot_volumetrao.json:/app/bot_volumetrao.json:ro
+      - ./engine:/app/engine
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    networks:
+      - jarvis-net
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: jarvis-worker
+    restart: unless-stopped
+    command: ["node", "engine/workers/messageWorker.js"]
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL must be set in .env}
+      PGHOST: postgres
+      PGPORT: 5432
+      PGUSER: ${POSTGRES_USER:-jarvis}
+      PGPASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env}
+      PGDATABASE: ${POSTGRES_DB:-jarvispronto}
+      REDIS_URL: redis://redis:6379
+      USE_MESSAGE_QUEUE: "1"
+      WORKER_CONCURRENCY: ${WORKER_CONCURRENCY:-5}
+      WORKER_HTTP_PORT: "3002"
+    expose:
+      - "3002"
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"require('http').get('http://localhost:3002/health', r => process.exit(r.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))\""]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    volumes:
+      - jarvis_auth:/app/auth_info_jarvis
+      - jarvis_logs:/app/logs
+      - jarvis_data:/app/data
+      - ./scripts:/app/scripts
+      - ./bot_volumetrao.json:/app/bot_volumetrao.json:ro
+      - ./engine:/app/engine
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    networks:
+      - jarvis-net
+    profiles:
+      - full
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.frontend
+      args:
+        NEXT_PUBLIC_API_URL: ""
+    container_name: jarvis-frontend
+    restart: unless-stopped
+    expose:
+      - "3001"
+    environment:
+      NEXT_PUBLIC_API_URL: ""
+      PORT: 3001
+      HOSTNAME: 0.0.0.0
+    depends_on:
+      - api
+    networks:
+      - jarvis-net
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: jarvis-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-jarvis}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-jarvispronto}
+    expose:
+      - "5432"
+    volumes:
+      - jarvis_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-jarvis} -d ${POSTGRES_DB:-jarvispronto}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - jarvis-net
+
+  simulator:
+    build:
+      context: ./jarvis-simulator
+      dockerfile: Dockerfile
+    container_name: jarvis-simulator
+    restart: unless-stopped
+    env_file:
+      - ./jarvis-simulator/.env
+    environment:
+      JARVIS_INTERNAL_URL: http://api:3000/internal
+    ports:
+      - "4000:4000"
+    depends_on:
+      - api
+    networks:
+      - jarvis-net
+    profiles:
+      - simulator
+
+  redis:
+    image: redis:7-alpine
+    container_name: jarvis-redis
+    restart: unless-stopped
+    expose:
+      - "6379"
+    volumes:
+      - jarvis_redis:/data
+    networks:
+      - jarvis-net
+
+volumes:
+  jarvis_auth:
+  jarvis_logs:
+  jarvis_data:
+  jarvis_pgdata:
+  jarvis_redis:
+  certbot_www:
+  certbot_etc:
+
+networks:
+  jarvis-net:
+    driver: bridge

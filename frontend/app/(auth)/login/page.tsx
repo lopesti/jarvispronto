@@ -1,0 +1,109 @@
+"use client";
+
+import Link from "next/link";
+import { Bot } from "lucide-react";
+import { useState } from "react";
+import { login } from "@/lib/api";
+
+export default function LoginPage() {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    setLoading(true);
+
+    try {
+      await login(email, password);
+      
+      // Dá um pequeno delay de 100ms para garantir que o token foi 
+      // gravado no sessionStorage pelo navegador, e então força o 
+      // recarregamento completo da página para o painel.
+      setTimeout(() => {
+        window.location.href = "/overview";
+      }, 100);
+
+    } catch (err: any) {
+      const msg =
+        err?.response?.data?.error || "Falha no login. Verifique email e senha.";
+      setError(msg);
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="flex min-h-[100dvh] items-center justify-center bg-background px-4 py-8 sm:px-6">
+      <div className="w-full max-w-md">
+        <div className="mb-8 text-center">
+          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/20">
+            <Bot className="h-7 w-7 text-primary" />
+          </div>
+          <h1 className="text-2xl font-bold">Entrar no JARVIS</h1>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Acesse seu painel de vendas com IA
+          </p>
+        </div>
+
+        <form
+          onSubmit={handleSubmit}
+          className="space-y-4 rounded-xl border border-border bg-card card-pad"
+        >
+          {error && (
+            <div className="rounded-lg bg-red-500/10 px-3 py-2 text-sm text-red-400">
+              {error}
+            </div>
+          )}
+          <div>
+            <label htmlFor="email" className="mb-1.5 block text-sm text-muted-foreground">
+              Email
+            </label>
+            <input
+              id="email"
+              name="email"
+              type="email"
+              autoComplete="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="seu@email.com"
+              className="w-full rounded-lg border border-border bg-secondary/50 px-4 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+            />
+          </div>
+          <div>
+            <label htmlFor="password" className="mb-1.5 block text-sm text-muted-foreground">
+              Senha
+            </label>
+            <input
+              id="password"
+              name="password"
+              type="password"
+              autoComplete="current-password"
+              required
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="••••••••"
+              className="w-full rounded-lg border border-border bg-secondary/50 px-4 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+            />
+          </div>
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full min-h-[44px] rounded-xl bg-primary py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
+          >
+            {loading ? "Entrando..." : "Entrar"}
+          </button>
+        </form>
+
+        <p className="mt-6 text-center text-sm text-muted-foreground">
+          Nao tem conta?{" "}
+          <Link href="/register" className="text-primary hover:underline">
+            Criar conta
+          </Link>
+        </p>
+      </div>
+    </div>
+  );
+}

@@ -1,0 +1,29 @@
+# docker-compose.local.yml
+# ─────────────────────────────────────────────────────────────
+# Modo LOCAL — usa o Postgres do Docker em vez do Supabase.
+#
+# Uso:
+#   docker compose -f docker-compose.yml -f docker-compose.local.yml --profile full up -d
+#
+# O modo ONLINE (padrão) continua sendo:
+#   docker compose --profile full up -d
+# ─────────────────────────────────────────────────────────────
+
+services:
+  api:
+    environment:
+      DATABASE_URL: ${DATABASE_URL_LOCAL}
+      PGHOST: postgres
+      PGPORT: 5432
+      PGUSER: ${POSTGRES_USER:-jarvis}
+      PGPASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env}
+      PGDATABASE: ${POSTGRES_DB:-jarvispronto}
+
+  worker:
+    environment:
+      DATABASE_URL: ${DATABASE_URL_LOCAL}
+      PGHOST: postgres
+      PGPORT: 5432
+      PGUSER: ${POSTGRES_USER:-jarvis}
+      PGPASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env}
+      PGDATABASE: ${POSTGRES_DB:-jarvispronto}
