@@ -17,14 +17,27 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      await login(email, password);
+      // Faz a chamada na API
+      const response = await login(email, password);
       
-      // Dá um pequeno delay de 100ms para garantir que o token foi 
-      // gravado no sessionStorage pelo navegador, e então força o 
-      // recarregamento completo da página para o painel.
-      setTimeout(() => {
-        window.location.href = "/overview";
-      }, 100);
+      // Pega o token que veio na resposta
+      const token = response?.accessToken || response?.token;
+
+      if (token) {
+        // FORÇA o salvamento no localStorage (onde o AuthGuard lê)
+        localStorage.setItem("jarvis_token", token);
+        if (response.user) {
+          localStorage.setItem("jarvis_user", JSON.stringify(response.user));
+        }
+        if (response.refreshToken) {
+          localStorage.setItem("jarvis_refresh", response.refreshToken);
+        }
+        
+        // Redireciona forçando recarregamento total
+        window.location.replace("/overview");
+      } else {
+        throw new Error("Token não retornado");
+      }
 
     } catch (err: any) {
       const msg =
