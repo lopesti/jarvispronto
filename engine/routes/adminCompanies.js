@@ -1,10 +1,10 @@
-// engine/routes/adminCompanies.js
+﻿// engine/routes/adminCompanies.js
 const express = require('express');
 const router = express.Router();
 const db = require('../models/database');
 const logger = require('../utils/logger');
 
-// GET /api/admin/companies — lista todas as empresas
+// GET /api/admin/companies â€” lista todas as empresas
 router.get('/', async (req, res) => {
   try {
     const { q, plan } = req.query;
@@ -48,7 +48,36 @@ router.get('/', async (req, res) => {
   }
 });
 
-// GET /api/admin/companies/:id — detalhe de uma empresa
+// POST /api/admin/companies/:id/access-context
+router.post('/:id/access-context', async (req, res) => {
+  try {
+    const companyId = Number(req.params.id);
+
+    if (!Number.isInteger(companyId) || companyId <= 0) {
+      return res.status(400).json({ error: 'ID de empresa invalido' });
+    }
+
+    const { createContextToken } = require('../services/adminCompanyContext');
+    const result = await createContextToken(req.user.id, companyId);
+
+    logger.info(
+      `[admin/companies] contexto iniciado admin=${req.user.id} company=${companyId}`
+    );
+
+    res.json({
+      ok: true,
+      contextToken: result.token,
+      company: result.company,
+      expiresIn: 28800,
+    });
+  } catch (e) {
+    logger.error(`[admin/companies] access-context: ${e.message}`);
+    res.status(e.status || 500).json({
+      error: e.message || 'Erro ao iniciar acesso administrativo',
+    });
+  }
+});
+// GET /api/admin/companies/:id â€” detalhe de uma empresa
 router.get('/:id', async (req, res) => {
   try {
     const { rows } = await db.query(`
@@ -63,7 +92,7 @@ router.get('/:id', async (req, res) => {
     `, [req.params.id]);
 
     if (!rows[0]) {
-      return res.status(404).json({ error: 'Empresa não encontrada' });
+      return res.status(404).json({ error: 'Empresa nÃ£o encontrada' });
     }
 
     res.json(rows[0]);
@@ -73,7 +102,7 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-// PUT /api/admin/companies/:id — atualizar status/plano
+// PUT /api/admin/companies/:id â€” atualizar status/plano
 router.put('/:id', async (req, res) => {
   try {
     const { subscription_status, plan_code } = req.body || {};
@@ -105,7 +134,7 @@ router.put('/:id', async (req, res) => {
     `, params);
 
     if (!rows[0]) {
-      return res.status(404).json({ error: 'Empresa não encontrada' });
+      return res.status(404).json({ error: 'Empresa nÃ£o encontrada' });
     }
 
     logger.info(`[admin/companies] company=${req.params.id} atualizado por user=${req.user.id}`);

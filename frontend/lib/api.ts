@@ -1,4 +1,4 @@
-import axios from "axios";
+﻿import axios from "axios";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
 
@@ -10,12 +10,17 @@ export const api = axios.create({
 
 api.interceptors.request.use((config) => {
   if (typeof window !== "undefined") {
-    // Preferência: cookie httpOnly (automático via withCredentials).
-    // Fallback Bearer em sessionStorage (não persiste entre abas fechadas como localStorage).
+    // PreferÃªncia: cookie httpOnly (automÃ¡tico via withCredentials).
+    // Fallback Bearer em sessionStorage (nÃ£o persiste entre abas fechadas como localStorage).
     const token =
       sessionStorage.getItem("jarvis_token") ||
       localStorage.getItem("jarvis_token");
     if (token) config.headers.Authorization = `Bearer ${token}`;
+
+    const adminContext = sessionStorage.getItem("jarvis_admin_company_context");
+    if (adminContext) {
+      config.headers["x-admin-company-context"] = adminContext;
+    }
   }
   return config;
 });
@@ -403,9 +408,9 @@ export async function deleteProduto(id: number | string) {
   return data;
 }
 
-// ═══════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 //  WhatsApp multi-tenant (por empresa)
-// ═══════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 export type WhatsAppStatus = {
   companyId: number;
@@ -434,9 +439,9 @@ export async function getWhatsAppQr() {
   return data as { qrImage?: string; hint?: string } & WhatsAppStatus;
 }
 
-// ═══════════════════════════════════════════════════════════
-//  Helpers de sessão (superadmin, user atual)
-// ═══════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+//  Helpers de sessÃ£o (superadmin, user atual)
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 export function getCurrentUser(): AuthUser | null {
   if (typeof window === "undefined") return null;
@@ -453,7 +458,7 @@ export function isSuperadmin(): boolean {
   const user = getCurrentUser();
   return user?.is_superadmin === true;
 }
-// ─── SaaS / Billing ───────────────────────────────────────
+// â”€â”€â”€ SaaS / Billing â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export type PlanLimits = {
   conversations?: number;
   users?: number;
@@ -531,7 +536,7 @@ export async function cancelSubscription() {
   return data;
 }
 
-// ─── CRM ──────────────────────────────────────────────────
+// â”€â”€â”€ CRM â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export async function updateLeadCrm(
   phone: string,
   payload: {
@@ -589,7 +594,7 @@ export async function getFunnelAnalytics() {
 }
 
 
-// ─── Tasks / follow-up ────────────────────────────────────
+// â”€â”€â”€ Tasks / follow-up â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export type LeadTask = {
   id: number;
   phone: string;
@@ -647,7 +652,7 @@ export async function deleteLeadTask(id: number) {
 }
 
 
-// ─── Notifications ────────────────────────────────────────
+// â”€â”€â”€ Notifications â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export type AppNotification = {
   id: number;
   type: string;
@@ -677,7 +682,7 @@ export async function checkOverdueTasksNow() {
   return data as { notified: number };
 }
 
-// ─── Company config / onboarding ──────────────────────────
+// â”€â”€â”€ Company config / onboarding â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export async function getCompanyConfig(companyId: number) {
   const { data } = await api.get(`/api/companies/${companyId}/config`);
   return data as { id: number; name: string; config: Record<string, unknown> };
@@ -703,7 +708,7 @@ export function getStoredUser(): AuthUser | null {
   }
 }
 
-// ─── Web Push ─────────────────────────────────────────────
+// â”€â”€â”€ Web Push â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export async function getVapidPublicKey() {
   const { data } = await api.get("/api/crm/push/vapid-public-key");
   return data as { publicKey: string };
@@ -723,3 +728,4 @@ export async function testPush(message?: string) {
   const { data } = await api.post("/api/crm/push/test", { message });
   return data as { sent: number; failed: number };
 }
+

@@ -1,0 +1,30 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  # API Jarvis (métricas de negócio + uptime)
+  - job_name: jarvis-api
+    metrics_path: /metrics
+    scheme: http
+    static_configs:
+      - targets: ["api:3000"]
+        labels:
+          service: api
+          app: jarvis
+    # Se METRICS_TOKEN estiver no .env, descomente e ajuste:
+    # params:
+    #   token: ["SEU_METRICS_TOKEN"]
+
+  # Health via blackbox-style: usamos o próprio /metrics; up = target reachable
+  # cAdvisor — CPU/memória/rede por container
+  - job_name: cadvisor
+    static_configs:
+      - targets: ["cadvisor:8080"]
+        labels:
+          service: cadvisor
+
+  # Prometheus self
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]

@@ -59,9 +59,26 @@ async function connectCompany(companyId, onMessage) {
   const session = getSession(id);
   if (onMessage) session.onMessage = onMessage;
 
+  // Já conectado
   if (session.sock && session.state === 'open') {
     logger.info(`[WA][company=${id}] Ja conectado`);
     return session.sock;
+  }
+
+  // FIX: não recria socket se já está gerando QR / connecting
+  // (clicar de novo no botão derrubava o pareamento em andamento)
+  if (session.sock && (session.state === 'qr' || session.state === 'connecting')) {
+    logger.info(`[WA][company=${id}] Sessao em andamento (state=${session.state}) — reutilizando socket`);
+    return session.sock;
+  }
+
+  // Fecha socket anterior residual antes de abrir outro
+  if (session.sock) {
+    try {
+      session.sock.ev?.removeAllListeners?.();
+      session.sock.end?.();
+    } catch (_) {}
+    session.sock = null;
   }
 
   const authDir = authDirFor(id);
@@ -224,11 +241,12 @@ function getQr(companyId) {
 
 function getState(companyId) {
   const s = getSession(companyId);
+  const connected = s.state === 'open';
   return {
     companyId: Number(companyId),
     state: s.state,
-    connected: s.state === 'open',
-    hasQr: Boolean(s.qr),
+    connected,
+    hasQr: Boolean(s.qr) && !connected,
   };
 }
 

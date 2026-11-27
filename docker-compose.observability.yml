@@ -1,0 +1,174 @@
+
+# Observabilidade Jarvis — sobe junto do stack principal
+# Uso:
+# docker compose -f docker-compose.yml -f docker-compose.observability.yml --profile observability up -d
+
+services:
+
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    container_name: jarvis-prometheus
+    restart: unless-stopped
+    profiles: ["observability"]
+    user: root
+
+    environment:
+      METRICS_TOKEN: ${METRICS_TOKEN:?METRICS_TOKEN não definido no .env}
+      INTERNAL_SIM_TOKEN: ${INTERNAL_SIM_TOKEN:?INTERNAL_SIM_TOKEN não definido no .env}
+
+    volumes:
+      - prometheus_data:/prometheus
+
+    command:
+      - --config.file=/tmp/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=15d
+      - --web.enable-lifecycle
+
+    entrypoint: >
+      sh -c 'echo "global:
+        scrape_interval: 15s
+        evaluation_interval: 15s
+      scrape_configs:
+        - job_name: \"prometheus\"
+          static_configs:
+            - targets: [\"localhost:9090\"]
+
+        - job_name: \"api\"
+          metrics_path: /metrics
+          params:
+            token: [\"$$METRICS_TOKEN\"]
+          static_configs:
+            - targets: [\"api:3000\"]
+
+        - job_name: \"worker\"
+          metrics_path: /metrics
+          params:
+            token: [\"$$METRICS_TOKEN\"]
+          static_configs:
+            - targets: [\"worker:3002\"]
+
+        - job_name: \"cadvisor\"
+          static_configs:
+            - targets: [\"cadvisor:8080\"]
+      " > /tmp/prometheus.yml && exec /bin/prometheus --config.file=/tmp/prometheus.yml --storage.tsdb.path=/prometheus --storage.tsdb.retention.time=15d --web.enable-lifecycle'
+
+    ports:
+      - "9090:9090"
+
+    networks:
+      - jarvis-net
+
+    depends_on:
+      - api
+
+  grafana:
+    image: grafana/grafana:11.2.0
+    container_name: jarvis-grafana
+    restart: unless-stopped
+    profiles: ["observability"]
+
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?Defina GRAFANA_ADMIN_PASSWORD no ambiente}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_SERVER_ROOT_URL: http://localhost:3003
+
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./observability/grafana/dashboards:/var/lib/grafana/dashboards:ro
+
+    ports:
+      - "3003:3000"
+
+    networks:
+      - jarvis-net
+
+    depends_on:
+      - prometheus
+      - loki
+
+
+  loki:
+    image: grafana/loki:3.1.1
+    container_name: jarvis-loki
+    restart: unless-stopped
+    profiles: ["observability"]
+    user: root
+
+    volumes:
+      - loki_data:/loki
+
+    entrypoint: >
+      sh -c 'mkdir -p /loki/chunks /loki/rules /loki/wal && printf "auth_enabled: false\n\nserver:\n  http_listen_port: 3100\n  grpc_listen_port: 9096\n\ncommon:\n  instance_addr: 127.0.0.1\n  path_prefix: /loki\n  storage:\n    filesystem:\n      chunks_directory: /loki/chunks\n      rules_directory: /loki/rules\n  replication_factor: 1\n  ring:\n    kvstore:\n      store: inmemory\n\nquery_range:\n  results_cache:\n    cache:\n      embedded_cache:\n        enabled: true\n        max_size_mb: 100\n\nschema_config:\n  configs:\n    - from: 2020-10-24\n      store: tsdb\n      object_store: filesystem\n      schema: v13\n      index:\n        prefix: index_\n        period: 24h\n\nruler:\n  alertmanager_url: http://localhost:9093\n\nanalytics:\n  reporting_enabled: false\n" > /tmp/loki-config.yml && exec /usr/bin/loki -config.file=/tmp/loki-config.yml'
+
+    ports:
+      - "3100:3100"
+
+    networks:
+      - jarvis-net
+
+
+  promtail:
+    image: grafana/promtail:3.1.1
+    container_name: jarvis-promtail
+    restart: unless-stopped
+    profiles: ["observability"]
+
+    volumes:
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+
+    entrypoint: >
+      sh -c 'echo "server:
+        http_listen_port: 9080
+        grpc_listen_port: 0
+      positions:
+        filename: /tmp/positions.yaml
+      clients:
+        - url: http://loki:3100/loki/api/v1/push
+      scrape_configs:
+        - job_name: docker
+          docker_sd_configs:
+            - host: unix:///var/run/docker.sock
+          relabel_configs:
+            - source_labels: [\"__meta_docker_container_name\"]
+              regex: \"/(.*)\"
+              target_label: container_name
+      " > /tmp/promtail-config.yml && exec /usr/bin/promtail -config.file=/tmp/promtail-config.yml'
+
+    networks:
+      - jarvis-net
+
+    depends_on:
+      - loki
+
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.49.1
+    container_name: jarvis-cadvisor
+    restart: unless-stopped
+    profiles: ["observability"]
+    privileged: true
+
+    devices:
+      - /dev/kmsg:/dev/kmsg
+
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+
+    ports:
+      - "8088:8080"
+
+    networks:
+      - jarvis-net
+
+
+volumes:
+  prometheus_data:
+  grafana_data:
+  loki_data:

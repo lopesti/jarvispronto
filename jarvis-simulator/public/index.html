@@ -1,0 +1,110 @@
+﻿<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Jarvis Simulador</title>
+<script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+<style>
+  :root {
+    --bg: #0f172a; --panel: #1e293b; --border: #334155;
+    --text: #e2e8f0; --muted: #94a3b8; --accent: #22c55e; --danger: #ef4444;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: system-ui, sans-serif; background: var(--bg); color: var(--text); }
+  header { padding: 16px 24px; border-bottom: 1px solid var(--border); }
+  header h1 { margin: 0; font-size: 18px; }
+  header p { margin: 4px 0 0; color: var(--muted); font-size: 13px; }
+  .layout { display: grid; grid-template-columns: 300px 1fr; gap: 16px; padding: 16px 24px; }
+  @media (max-width: 800px) { .layout { grid-template-columns: 1fr; } }
+  .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 16px; }
+  .field { margin-bottom: 12px; }
+  label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+  input[type=number], select { width: 100%; padding: 8px; border-radius: 6px; border: 1px solid var(--border); background: #0b1220; color: var(--text); }
+  .personas label.checkbox { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text); margin-bottom: 6px; }
+  button { width: 100%; padding: 10px; border-radius: 6px; border: none; font-weight: 600; cursor: pointer; margin-top: 6px; }
+  #startBtn { background: var(--accent); color: #052e16; }
+  #stopBtn { background: var(--danger); color: #450a0a; }
+  #status { font-size: 13px; color: var(--muted); margin-top: 10px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 8px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { color: var(--muted); font-weight: 600; }
+  .badge { padding: 2px 8px; border-radius: 999px; font-size: 11px; }
+  .b-run { background: #14532d; color: #bbf7d0; }
+  .b-done { background: #1e3a8a; color: #bfdbfe; }
+  .b-err { background: #7f1d1d; color: #fecaca; }
+  .b-stop { background: #78350f; color: #fde68a; }
+  .log { max-height: 90px; overflow-y: auto; font-size: 12px; color: var(--muted); }
+  .log div { margin-bottom: 2px; }
+  .log .cliente { color: #93c5fd; }
+  .log .jarvis { color: #86efac; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Jarvis Simulador</h1>
+  <p>Simulação de operação comercial real com clientes fictícios e IA atendendo pelo pipeline real</p>
+</header>
+
+<div class="layout">
+  <div class="panel">
+    <div class="field">
+      <label for="companyId">Empresa / Tenant</label>
+      <select id="companyId">
+        <option value="">Selecione a empresa</option>
+        <option value="4">Ateliê da Moda (4)</option>
+        <option value="5">Estilo Urbano (5)</option>
+        <option value="6">Bella Roupas (6)</option>
+        <option value="7">Trend Store (7)</option>
+        <option value="8">TechNow (8)</option>
+        <option value="9">Gadget Shop (9)</option>
+        <option value="10">MegaEletro (10)</option>
+        <option value="11">Smart Store (11)</option>
+        <option value="12">Sabor Caseiro (12)</option>
+        <option value="13">Café & Cia (13)</option>
+        <option value="14">Empório Natural (14)</option>
+        <option value="15">Glow Beauty (15)</option>
+        <option value="16">Pura Pele (16)</option>
+        <option value="17">Essência Cosméticos (17)</option>
+        <option value="18">Casa & Estilo (18)</option>
+        <option value="19">Lar Doce Lar (19)</option>
+        <option value="20">Decor House (20)</option>
+        <option value="21">VitaMais (21)</option>
+        <option value="22">FitLife (22)</option>
+        <option value="23">Nutri Power (23)</option>
+      </select>
+    </div>
+    <div class="field">
+      <label for="quantity">Quantidade de conversas</label>
+      <input type="number" id="quantity" value="5" min="1" max="200" />
+    </div>
+    <div class="field">
+      <label for="maxTurns">Turnos por conversa</label>
+      <input type="number" id="maxTurns" value="6" min="1" max="20" />
+    </div>
+    <div class="field">
+      <label for="pacingMs">Intervalo entre mensagens (ms)</label>
+      <input type="number" id="pacingMs" value="1500" min="300" max="15000" />
+    </div>
+    <div class="field personas">
+      <label>Personas (nenhuma marcada = todas)</label>
+      <div id="personaList">Carregando...</div>
+    </div>
+    <button id="startBtn">▶ Iniciar simulação</button>
+    <button id="stopBtn">■ Parar</button>
+    <div id="status">Ocioso</div>
+  </div>
+
+  <div class="panel">
+    <table>
+      <thead>
+        <tr><th>Persona</th><th>Produto</th><th>Nº simulado</th><th>Status</th><th>Turnos</th><th>Última troca</th></tr>
+      </thead>
+      <tbody id="tbody"></tbody>
+    </table>
+  </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>

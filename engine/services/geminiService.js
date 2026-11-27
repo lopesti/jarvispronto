@@ -1,3 +1,4 @@
+
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const Groq = require('groq-sdk');
 const fs = require('fs');
@@ -7,20 +8,44 @@ const logger = require('../utils/logger');
 const cache = require('./cacheService');
 const db = require('../models/database');
 
-const botConfig = JSON.parse(
-  fs.readFileSync(path.join(__dirname, '../../bot_volumetrao.json'), 'utf8')
-);
+const botConfigPath = path.join(__dirname, '../../bot_volumetrao.json');
+
+let botConfig;
+
+if (fs.existsSync(botConfigPath)) {
+  botConfig = JSON.parse(fs.readFileSync(botConfigPath, 'utf8'));
+} else if (process.env.ALLOW_DEFAULT_BOT_CONFIG === '1') {
+  logger.warn('[gemini] Configuração padrão ativada: arquivo do bot ausente.');
+
+  botConfig = {
+    systemPrompt: 'Você é um assistente virtual prestativo. Responda com clareza e objetividade.',
+    fallbackMessage: 'Desculpe, estou com dificuldades técnicas. Tente novamente mais tarde.',
+  };
+} else {
+  throw new Error(
+    'Arquivo bot_volumetrao.json ausente. Configure o arquivo ou autorize explicitamente a configuração padrão.'
+  );
+}
+
+if (
+  !botConfig ||
+  typeof botConfig.systemPrompt !== 'string' ||
+  typeof botConfig.fallbackMessage !== 'string'
+) {
+  throw new Error('Configuração do bot inválida: systemPrompt e fallbackMessage são obrigatórios.');
+}
 
 const genAI = process.env.GEMINI_API_KEY
   ? new GoogleGenerativeAI(process.env.GEMINI_API_KEY)
   : null;
+
 const groq = process.env.GROQ_API_KEY
   ? new Groq({ apiKey: process.env.GROQ_API_KEY })
   : null;
 
 // ═══════════════════════════════════════════════════════════════════════════
-//  Cache key com tenant (BUG-008 corrigido)
-//  F-02 (corrigido): NAO cacheia mensagens curtas/ambiguas
+// Cache key com tenant (BUG-008 corrigido)
+// F-02: NAO cacheia mensagens curtas/ambiguas
 // ═══════════════════════════════════════════════════════════════════════════
 
 function normalizeInput(text) {
@@ -40,18 +65,21 @@ function buildCacheKey(userInput, companyId) {
     .update(normalizeInput(userInput))
     .digest('hex')
     .slice(0, 16);
+
   return `ia:${cid}:${inputHash}`;
 }
 
 function isAmbiguousShortInput(userInput) {
   const t = normalizeInput(userInput);
+
   if (!t) return true;
   if (t.length < 25) return true;
+
   return /^(sim|nao|ok|pode|quanto|qual|como|quando|onde|esse|essa|isso|beleza|blz|vlw|obg|obrigado|valeu)\b/.test(t);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-//  Prompt por tenant (BUG-009) + catalogo de produtos (F-03)
+// Prompt por tenant (BUG-009) + catalogo de produtos (F-03)
 // ═══════════════════════════════════════════════════════════════════════════
 
 const _promptCache = new Map();
@@ -77,15 +105,21 @@ async function buildProductsContext(companyId) {
 
     const linhas = rows.map((p) => {
       const nome = p.nome || '(sem nome)';
+
       const preco =
         p.preco !== null && p.preco !== undefined
           ? `R$ ${Number(p.preco).toFixed(2)}`
           : 'preco sob consulta';
+
       const estoque =
         p.estoque !== null && p.estoque !== undefined
           ? ` | estoque: ${p.estoque}`
           : '';
-      const desc = p.descricao ? ` | ${String(p.descricao).slice(0, 120)}` : '';
+
+      const desc = p.descricao
+        ? ` | ${String(p.descricao).slice(0, 120)}`
+        : '';
+
       return `- ${nome}: ${preco}${estoque}${desc}`;
     });
 
@@ -104,16 +138,65 @@ async function buildProductsContext(companyId) {
   }
 }
 
+/**
+ * Contexto exclusivo do produto selecionado para uma conversa simulada.
+ * A consulta também garante o isolamento por empresa (tenant).
+ */
+async function buildSelectedProductContext(productId, companyId) {
+  const { rows } = await db.query(
+    `SELECT nome, descricao, preco, estoque
+       FROM produtos
+      WHERE id = $1
+        AND company_id = $2
+      LIMIT 1`,
+    [productId, companyId]
+  );
+
+  if (!rows.length) {
+    throw new Error('Produto selecionado não pertence à empresa');
+  }
+
+  const produto = rows[0];
+
+  const preco =
+    produto.preco !== null && produto.preco !== undefined
+      ? `R$ ${Number(produto.preco).toFixed(2)}`
+      : 'Sob consulta';
+
+  const estoque =
+    produto.estoque !== null && produto.estoque !== undefined
+      ? String(produto.estoque)
+      : 'Não informado';
+
+  return (
+    '\n\n=== PRODUTO DESTA CONVERSA ===\n' +
+    `Nome: ${produto.nome || 'Não informado'}\n` +
+    `Preço: ${preco}\n` +
+    `Estoque: ${estoque}\n` +
+    `Descrição: ${produto.descricao || 'Não informada'}\n\n` +
+    'REGRAS PARA ESTA CONVERSA:\n' +
+    '- Priorize este produto ao responder às perguntas do cliente.\n' +
+    '- Considere que o cliente está interessado neste produto específico.\n' +
+    '- Utilize os dados cadastrados para informar preço, estoque e características.\n' +
+    '- Não invente características, descontos, preços ou disponibilidade.\n' +
+    '- Se não souber alguma informação, informe que precisa confirmar com um atendente.\n' +
+    '- Não confunda este produto com outros itens do catálogo da empresa.\n'
+  );
+}
+
 async function getSystemPrompt(companyId) {
   const cid = Number(companyId);
+
   const fallback = {
     systemPrompt: botConfig.systemPrompt,
     fallbackMessage: botConfig.fallbackMessage,
   };
+
   if (!cid || Number.isNaN(cid)) return fallback;
 
   const now = Date.now();
   const hit = _promptCache.get(cid);
+
   if (hit && hit.expiresAt > now) return hit;
 
   try {
@@ -124,6 +207,7 @@ async function getSystemPrompt(companyId) {
         WHERE id = $1`,
       [cid]
     );
+
     const row = (rows && rows[0]) || {};
 
     const basePrompt =
@@ -144,6 +228,7 @@ async function getSystemPrompt(companyId) {
       fallbackMessage,
       expiresAt: now + PROMPT_TTL_MS,
     };
+
     _promptCache.set(cid, result);
     return result;
   } catch (err) {
@@ -157,48 +242,89 @@ function invalidateSystemPromptCache(companyId) {
     _promptCache.clear();
     return;
   }
+
   _promptCache.delete(Number(companyId));
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-//  Geracao com cache isolado por tenant (F-02: skip cache p/ msg curta)
+// Geracao com cache isolado por tenant e produto
+// F-02: skip cache p/ msg curta
+// SIMULADOR: skip cache quando existe productId
 // ═══════════════════════════════════════════════════════════════════════════
 
-async function generateResponse(userInput, history = [], companyId) {
+async function generateResponse(
+  userInput,
+  history = [],
+  companyId,
+  productId = null
+) {
   const cid = Number(companyId);
+
   if (!cid || Number.isNaN(cid)) {
     logger.warn('[gemini] companyId ausente — gerando sem cache');
     return await generateWithoutCache(userInput, history);
   }
 
   const { systemPrompt, fallbackMessage } = await getSystemPrompt(cid);
+
+  let effectiveSystemPrompt = systemPrompt;
+
+  if (productId !== null && productId !== undefined) {
+    const pid = Number(productId);
+
+    if (!Number.isInteger(pid) || pid <= 0) {
+      throw new Error('productId inválido');
+    }
+
+    const selectedProductContext = await buildSelectedProductContext(pid, cid);
+    effectiveSystemPrompt += selectedProductContext;
+
+    logger.info(
+      `[gemini] Contexto de produto ativo company=${cid} product=${pid}`
+    );
+  }
+
   const cacheKey = buildCacheKey(userInput, cid);
-  const skipCache = isAmbiguousShortInput(userInput);
+
+  // Evita reutilizar respostas de outro produto na mesma empresa.
+  const skipCache =
+    Boolean(productId) || isAmbiguousShortInput(userInput);
 
   if (!skipCache) {
     const cached = await cache.get(cacheKey);
+
     if (cached) {
       logger.info(
         `[gemini] Cache HIT company=${cid} input="${String(userInput).slice(0, 40)}"`
       );
+
       return cached;
     }
   } else {
     logger.info(
-      `[gemini] Cache SKIP (msg curta/ambigua) company=${cid} input="${String(userInput).slice(0, 40)}"`
+      `[gemini] Cache SKIP company=${cid} product=${productId || 'nenhum'} input="${String(userInput).slice(0, 40)}"`
     );
   }
 
   try {
     if (groq) {
       logger.info(`[gemini] Groq company=${cid}...`);
-      const response = await generateWithGroq(userInput, history, systemPrompt);
+
+      const response = await generateWithGroq(
+        userInput,
+        history,
+        effectiveSystemPrompt
+      );
+
       if (!skipCache) {
         await cache.set(cacheKey, response, 3600);
       }
+
       logger.info(`[gemini] Resposta gerada pelo Groq company=${cid}`);
+
       return response;
     }
+
     throw new Error('Groq nao configurado');
   } catch (error) {
     logger.warn(`[gemini] Groq falhou (${error.message}), usando Gemini...`);
@@ -206,11 +332,19 @@ async function generateResponse(userInput, history = [], companyId) {
 
   try {
     if (!genAI) throw new Error('Gemini nao configurado');
-    const response = await generateWithGemini(userInput, history, systemPrompt);
+
+    const response = await generateWithGemini(
+      userInput,
+      history,
+      effectiveSystemPrompt
+    );
+
     if (!skipCache) {
       await cache.set(cacheKey, response, 3600);
     }
+
     logger.info(`[gemini] Resposta gerada pelo Gemini company=${cid}`);
+
     return response;
   } catch (err) {
     logger.error(`[gemini] Ambas IAs falharam: ${err.message}`);
@@ -230,16 +364,30 @@ async function generateResponse(userInput, history = [], companyId) {
 
 async function generateWithoutCache(userInput, history) {
   try {
-    if (groq) return await generateWithGroq(userInput, history, botConfig.systemPrompt);
+    if (groq) {
+      return await generateWithGroq(
+        userInput,
+        history,
+        botConfig.systemPrompt
+      );
+    }
+
     throw new Error('Groq nao configurado');
   } catch (error) {
     logger.warn('[gemini] Groq falhou: ' + error.message);
   }
+
   try {
     if (!genAI) throw new Error('Gemini nao configurado');
-    return await generateWithGemini(userInput, history, botConfig.systemPrompt);
+
+    return await generateWithGemini(
+      userInput,
+      history,
+      botConfig.systemPrompt
+    );
   } catch (err) {
     logger.error('[gemini] Ambas IAs falharam: ' + err.message);
+
     return (
       botConfig.fallbackMessage ||
       'Desculpe, estou com problemas tecnicos. Tente novamente mais tarde.'
@@ -248,7 +396,7 @@ async function generateWithoutCache(userInput, history) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-//  Providers
+// Providers
 // ═══════════════════════════════════════════════════════════════════════════
 
 async function generateWithGroq(userInput, history, systemPrompt) {
@@ -282,6 +430,7 @@ async function generateWithGemini(userInput, history, systemPrompt) {
   });
 
   const result = await chat.sendMessage('Usuario: ' + userInput);
+
   return result.response.text();
 }
 

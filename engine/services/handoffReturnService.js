@@ -1,6 +1,6 @@
-/**
- * F-09: devolve conversas ao bot após N minutos sem resposta humana.
- * Env: HANDOFF_RETURN_MINUTES=30, HANDOFF_RETURN_CRON=* /15 * * * *
+﻿/**
+ * F-09: devolve conversas ao bot apÃ³s N minutos sem resposta humana.
+ * Env: HANDOFF_RETURN_MINUTES=30, HANDOFF_RETURN_CRON (a cada 15 minutos)
  */
 const cron = require('node-cron');
 const { query } = require('../models/database');
@@ -22,7 +22,7 @@ async function processHandoffReturns() {
     [String(minutes)]
   );
   if (rows.length) {
-    logger.info(`[handoff-return] ${rows.length} conversa(s) devolvidas ao bot após ${minutes}min`);
+    logger.info(`[handoff-return] ${rows.length} conversa(s) devolvidas ao bot apÃ³s ${minutes}min`);
   }
   return { returned: rows.length };
 }

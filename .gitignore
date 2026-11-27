@@ -42,3 +42,11 @@ scripts/whitelist.local.json
 bloqueados.json
 contacts.csv
 contacts (1).csv
+
+# Arquivos locais de operacao comercial
+/config.json
+/bot_volumetrao.json
+
+# Arquivos locais de operacao comercial
+/config.json
+/bot_volumetrao.json

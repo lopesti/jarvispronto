@@ -18,7 +18,7 @@ permissions:
 jobs:
   deploy:
     name: Deploy na VM Azure
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     timeout-minutes: 10
     environment:
       name: production

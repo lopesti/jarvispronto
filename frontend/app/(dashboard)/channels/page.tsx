@@ -5,13 +5,13 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useApiMutation } from "@/lib/use-api-mutation";
 import { useState } from "react";
 import {
-  getChannelStatus,
   getWhatsAppStatus,
   connectWhatsApp,
   disconnectWhatsApp,
   getWhatsAppQr,
   type ChannelStatus,
 } from "@/lib/api";
+import { useChannelStatus, useSyncWhatsAppConnection } from "@/hooks/use-channel-status";
 import { cn } from "@/lib/utils";
 import {
   Radio,
@@ -52,8 +52,11 @@ function WhatsQrModal({ onClose }: { onClose: () => void }) {
   const { data: status, isLoading } = useQuery({
     queryKey: ["whatsapp-status"],
     queryFn: getWhatsAppStatus,
-    refetchInterval: 30000,
+    refetchInterval: 2000,
+    refetchIntervalInBackground: true,
   });
+
+  useSyncWhatsAppConnection(status?.connected);
 
   const { data: qrData } = useQuery({
     queryKey: ["whatsapp-qr"],
@@ -64,13 +67,21 @@ function WhatsQrModal({ onClose }: { onClose: () => void }) {
 
   const connectMut = useApiMutation({
     mutationFn: connectWhatsApp,
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["whatsapp-status"] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["whatsapp-status"] });
+      qc.invalidateQueries({ queryKey: ["channels"] });
+      qc.invalidateQueries({ queryKey: ["whatsapp-qr"] });
+    },
     successMessage: "Conexao iniciada, aguarde o QR",
   });
 
   const disconnectMut = useApiMutation({
     mutationFn: () => disconnectWhatsApp(false),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["whatsapp-status"] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["whatsapp-status"] });
+      qc.invalidateQueries({ queryKey: ["channels"] });
+      qc.invalidateQueries({ queryKey: ["whatsapp-qr"] });
+    },
     successMessage: "WhatsApp desconectado",
   });
 
@@ -224,11 +235,8 @@ export default function ChannelsPage() {
   const [showQrModal, setShowQrModal] = useState(false);
   const qc = useQueryClient();
 
-  const { data, isLoading } = useQuery({
-    queryKey: ["channels"],
-    queryFn: getChannelStatus,
-    refetchInterval: 30000,
-  });
+  const { data, isLoading } = useChannelStatus();
+  useSyncWhatsAppConnection(!!data?.whatsapp?.connected);
 
   const waOk = !!data?.whatsapp?.connected;
 
