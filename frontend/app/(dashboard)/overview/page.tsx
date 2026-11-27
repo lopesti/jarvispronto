@@ -2,11 +2,8 @@
 
 import { Header } from "@/components/layout/header";
 import { useQuery } from "@tanstack/react-query";
-import {
-  getConversations,
-  getChannelStatus,
-  stepLabel,
-} from "@/lib/api";
+import { getConversations, stepLabel } from "@/lib/api";
+import { useChannelStatus } from "@/hooks/use-channel-status";
 import { EmptyState } from "@/components/ui/empty-state";
 import Link from "next/link";
 import {
@@ -26,11 +23,7 @@ export default function OverviewPage() {
     refetchInterval: 15000,
   });
 
-  const { data: channels } = useQuery({
-    queryKey: ["channels"],
-    queryFn: getChannelStatus,
-    refetchInterval: 15000,
-  });
+  const { data: channels } = useChannelStatus();
 
   const list = Array.isArray(conversations) ? conversations : [];
   const totalConversations = list.length;

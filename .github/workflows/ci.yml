@@ -1,131 +1,88 @@
-﻿name: CI
+name: CI
 
 on:
   push:
-    branches: [main, master, develop]
+    branches: [main]
+    tags: ['v*']
   pull_request:
-    branches: [main, master, develop]
+  workflow_dispatch:
+
+permissions:
+  contents: read
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-permissions:
-  contents: read
-
 jobs:
-  lint:
-    name: Lint
-    runs-on: ubuntu-24.04
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-      - run: npm ci
-      - run: npm run lint
-
-  test:
-    name: Tests
-    runs-on: ubuntu-24.04
+  backend:
+    name: Backend - Lint e Jest
+    runs-on: ubuntu-latest
     timeout-minutes: 15
-    services:
-      postgres:
-        image: postgres:16-alpine
-        env:
-          POSTGRES_USER: test
-          POSTGRES_PASSWORD: test
-          POSTGRES_DB: test
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U test"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
+
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v4
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Node.js 20
+        uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
-      - run: npm ci
+          cache: npm
 
-      - name: Unit tests (Jest)
+      - name: Instalar dependências
+        run: npm ci
+
+      - name: Verificar sintaxe do backend
+        run: npm run lint
+
+      - name: Executar Jest completo
         run: npm test
-        env:
-          JWT_SECRET: test_secret_min_16_chars_ok
-          DATABASE_URL: postgres://test:test@localhost:5432/test
-          NODE_ENV: test
 
-      - name: Testes standalone (checks)
-        run: |
-          node tests/unit/handoffKeywords.check.js
-          node tests/unit/webhook-token.check.js
-          node tests/unit/funnel-acento.check.js
-          node tests/unit/refresh-shape.check.js
-        env:
-          JWT_SECRET: test_secret_min_16_chars_ok
-          DATABASE_URL: postgres://test:test@localhost:5432/test
-          NODE_ENV: test
+  frontend:
+    name: Frontend - TypeScript e Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
 
-      - uses: actions/setup-node@v4
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Node.js 20
+        uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
+          cache: npm
           cache-dependency-path: frontend/package-lock.json
 
-      - name: Frontend typecheck
-        working-directory: frontend
-        run: |
-          npm ci
-          npx tsc --noEmit
+      - name: Instalar dependências
+        run: npm ci
 
-  docker-build:
-    name: Docker build
-    runs-on: ubuntu-24.04
-    needs: [lint, test]
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@v5
+      - name: Verificar TypeScript
+        run: npx tsc --noEmit
 
-      - name: Setup Buildx
-        uses: docker/setup-buildx-action@v3
+      - name: Build Next.js
+        run: npm run build
 
-      - name: Build API image
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: ./Dockerfile
-          load: true
-          tags: jarvispronto-api:ci
-          cache-from: type=gha,scope=api
-          cache-to: type=gha,mode=max,scope=api
+  smoke:
+    name: Docker - Smoke tests
+    needs: [backend, frontend]
+    uses: ./.github/workflows/smoke.yml
+    permissions:
+      contents: read
 
-      - name: Build frontend image
-        uses: docker/build-push-action@v6
-        with:
-          context: frontend
-          file: frontend/Dockerfile.frontend
-          load: true
-          tags: jarvispronto-frontend:ci
-          cache-from: type=gha,scope=frontend
-          cache-to: type=gha,mode=max,scope=frontend
-
-  secrets-scan:
-    name: Secrets scan
-    runs-on: ubuntu-24.04
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@v5
-        with:
-          fetch-depth: 0
-
-      - name: Run Gitleaks via Docker
-        run: |
-          docker run --rm \
-            -v "$PWD:/repo" \
-            zricethezav/gitleaks:latest \
-            detect --source=/repo --verbose --config=/repo/.gitleaks.toml --redact --exit-code=1
+  publish:
+    name: Publicar imagens no GHCR
+    needs: [backend, frontend, smoke]
+    if: >-
+      github.event_name == 'push' &&
+      (github.ref == 'refs/heads/main' ||
+       startsWith(github.ref, 'refs/tags/v'))
+    uses: ./.github/workflows/build-and-push.yml
+    permissions:
+      contents: read
+      packages: write

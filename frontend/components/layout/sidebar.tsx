@@ -20,7 +20,8 @@ import {
 import { cn } from "@/lib/utils";
 import { ThemeToggle } from "./theme-toggle";
 import { useQuery } from "@tanstack/react-query";
-import { getChannelStatus, getConversations, isSuperadmin } from "@/lib/api";
+import { getConversations, isSuperadmin } from "@/lib/api";
+import { useChannelStatus } from "@/hooks/use-channel-status";
 import { getTickets } from "@/lib/support-api";
 import { useState, useEffect } from "react";
 import { useUIStore } from "@/stores/ui-store";
@@ -63,11 +64,7 @@ export function Sidebar() {
     return () => mq.removeEventListener("change", sync);
   }, [setSidebarOpen]);
 
-  const { data: channels } = useQuery({
-    queryKey: ["channels"],
-    queryFn: getChannelStatus,
-    refetchInterval: 60000,
-  });
+  const { data: channels } = useChannelStatus();
 
   const { data: needsList = [] } = useQuery({
     queryKey: ["conversations", "needs_human"],

@@ -1,18 +1,19 @@
+﻿
 const logger = require('../utils/logger');
 const { classifyStep, scoreForStep, getFunnelRules } = require('../utils/funnel');
 const conversationRepo = require('../repositories/conversationRepository');
 const messageRepo = require('../repositories/messageRepository');
 
-const HANDOFF_KEYWORDS = /\b(atendente|humano|operador|falar com algu[eé]m)\b/i;
+const HANDOFF_KEYWORDS = /\b(atendente|humano|operador)\b|\bfalar com algu[eé]m\b/i;
 
 /**
  * @param {string} from
  * @param {string} text
  * @param {object} sock
- * @param {object|number} opts  companyId number or { rid, companyId }
+ * @param {object|number} opts  companyId number or { rid, companyId, productId }
  */
 
-/** F-09: lock por phone com TTL 30s — 2ª mensagem concurrent é ignorada */
+/** F-09: lock por phone com TTL 30s â€” 2Âª mensagem concurrent Ã© ignorada */
 const phoneLocks = new Map();
 const LOCK_TTL_MS = 30000;
 
@@ -22,7 +23,7 @@ async function withPhoneLock(phone, companyId, fn) {
   if (existing) {
     const logger = require('../utils/logger');
     logger.info(`[lock] ignorando mensagem concorrente ${key}`);
-    return null; // não processa em paralelo
+    return null; // nÃ£o processa em paralelo
   }
   const entry = { until: Date.now() + LOCK_TTL_MS };
   phoneLocks.set(key, entry);
@@ -49,6 +50,12 @@ async function handleMessage(from, text, sock, opts = {}) {
 async function handleMessageUnlocked(from, text, sock, opts = {}) {
   const companyId =
     typeof opts === 'number' ? opts : Number(opts.companyId || opts) || 1;
+
+  const productId =
+    typeof opts === 'object' && opts !== null
+      ? Number(opts.productId) || null
+      : null;
+
   const rid = (typeof opts === 'object' && opts.rid) || `msg_${Date.now().toString(36)}`;
 
   if (
@@ -122,7 +129,7 @@ async function handleMessageUnlocked(from, text, sock, opts = {}) {
     }
 
     if (botMode === 'human' || needsHuman) {
-      logger.info(`[${rid}][company=${companyId}] Handoff — bot nao responde`);
+      logger.info(`[${rid}][company=${companyId}] Handoff â€” bot nao responde`);
       if (sock && HANDOFF_KEYWORDS.test(body)) {
         const note =
           'Certo! Vou transferir voce para um atendente. Em instantes alguem da equipe continua por aqui.';
@@ -142,9 +149,17 @@ async function handleMessageUnlocked(from, text, sock, opts = {}) {
     let responseText;
     try {
       const geminiService = require('../services/geminiService');
+
       // BUG-008 CORRIGIDO: passa companyId para isolar cache por tenant
       // F-06 CORRIGIDO: history nao contem a mensagem atual
-      responseText = await geminiService.generateResponse(body, history, companyId);
+      // SIMULADOR: passa productId para contextualizar o produto desta conversa
+      responseText = await geminiService.generateResponse(
+        body,
+        history,
+        companyId,
+        productId
+      );
+
       try {
         const { inc } = require('../utils/metrics');
         inc('ia_calls_total', companyId);
@@ -160,7 +175,7 @@ async function handleMessageUnlocked(from, text, sock, opts = {}) {
     }
 
     if (sock) {
-      // F-10: delay humano 800–1800ms
+      // F-10: delay humano 800â€“1800ms
       await new Promise((r) => setTimeout(r, 800 + Math.floor(Math.random() * 1000)));
       await sock.sendMessage(phone, { text: String(responseText) });
       try {
@@ -180,10 +195,10 @@ async function handleMessageUnlocked(from, text, sock, opts = {}) {
 
     logger.info(`[${rid}][company=${companyId}] OK step=${nextStep} score=${score}`);
 
-    // F-07: usage + automações
+    // F-07: usage + automaÃ§Ãµes
     try {
       const usageService = require('../services/usageService');
-      await usageService.increment(companyId, 'conversations', 0); // noop se já conta
+      await usageService.increment(companyId, 'conversations', 0); // noop se jÃ¡ conta
       await usageService.increment(companyId, 'messages', 1);
     } catch (_) {}
     try {
@@ -211,4 +226,7 @@ async function handleMessageUnlocked(from, text, sock, opts = {}) {
   }
 }
 
-module.exports = { handleMessage };
+module.exports = { handleMessage, HANDOFF_KEYWORDS };
+
+
+

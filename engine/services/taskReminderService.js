@@ -1,8 +1,8 @@
-/**
- * Cron: detecta tarefas de follow-up atrasadas e cria notificações no painel.
+﻿/**
+ * Cron: detecta tarefas de follow-up atrasadas e cria notificaÃ§Ãµes no painel.
  * Env:
- *   TASK_REMINDER_CRON   — default "* /10 * * * *" (a cada 10 min)
- *   TASK_REMINDER_ENABLED — "0" desliga
+ * TASK_REMINDER_CRON: padrao a cada 10 minutos
+ *   TASK_REMINDER_ENABLED â€” "0" desliga
  */
 const cron = require('node-cron');
 const { query } = require('../models/database');
@@ -13,7 +13,7 @@ const { publish } = require('./notificationHub');
 let started = false;
 
 async function processOverdueTasks() {
-  // Tarefas open com due_at no passado e ainda não notificadas nas últimas 24h
+  // Tarefas open com due_at no passado e ainda nÃ£o notificadas nas Ãºltimas 24h
   const { rows: tasks } = await query(
     `SELECT t.id, t.company_id, t.phone, t.title, t.due_at, t.assigned_to, t.priority
      FROM lead_tasks t
@@ -50,7 +50,7 @@ async function processOverdueTasks() {
         t.company_id,
         t.assigned_to || null,
         'Follow-up atrasado',
-        `"${t.title}" · lead ${phoneLabel} · prazo ${dueLabel}`,
+        `"${t.title}" Â· lead ${phoneLabel} Â· prazo ${dueLabel}`,
         JSON.stringify({
           taskId: t.id,
           phone: t.phone,
@@ -76,7 +76,7 @@ async function processOverdueTasks() {
     try {
       await pushService.sendPushToCompany(t.company_id, {
         title: 'Follow-up atrasado',
-        body: `"${t.title}" · lead ${phoneLabel}`,
+        body: `"${t.title}" Â· lead ${phoneLabel}`,
         url: '/tasks',
         tag: `task-overdue-${t.id}`,
         type: 'task.overdue',
@@ -96,13 +96,13 @@ async function processOverdueTasks() {
         ]
       );
     } catch (_) {
-      /* billing_events pode não existir em deploys antigos */
+      /* billing_events pode nÃ£o existir em deploys antigos */
     }
 
     notified += 1;
   }
 
-  logger.info(`[task-reminder] ${notified} notificação(ões) de tarefa atrasada`);
+  logger.info(`[task-reminder] ${notified} notificaÃ§Ã£o(Ãµes) de tarefa atrasada`);
   return { notified };
 }
 
@@ -115,7 +115,7 @@ function startTaskReminderCron() {
 
   const expr = process.env.TASK_REMINDER_CRON || '*/10 * * * *';
   if (!cron.validate(expr)) {
-    logger.error(`[task-reminder] cron inválido: ${expr}`);
+    logger.error(`[task-reminder] cron invÃ¡lido: ${expr}`);
     return;
   }
 
@@ -128,7 +128,7 @@ function startTaskReminderCron() {
   started = true;
   logger.info(`[task-reminder] cron ativo (${expr})`);
 
-  // rodada inicial após 15s (não atrasa o boot)
+  // rodada inicial apÃ³s 15s (nÃ£o atrasa o boot)
   setTimeout(() => {
     processOverdueTasks().catch((err) =>
       logger.error(`[task-reminder] rodada inicial: ${err.message}`)

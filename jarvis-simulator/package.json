@@ -1,0 +1,18 @@
+{
+  "name": "jarvis-simulator",
+  "version": "1.0.0",
+  "description": "Simulador de leads via WhatsApp para testar o funil do Jarvis end-to-end (Modo Volume)",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "@google/generative-ai": "^0.24.1",
+    "axios": "^1.7.7",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "groq-sdk": "^0.9.1",
+    "socket.io": "^4.7.5"
+  }
+}

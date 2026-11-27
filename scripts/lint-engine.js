@@ -1,46 +1,57 @@
 #!/usr/bin/env node
-/**
- * O-07 — lint real do backend: syntax check de todos os .js em engine/
- * (sem dependência extra de ESLint no MVP; CI-friendly)
- */
-const fs = require('fs');
-const path = require('path');
-const { execFileSync } = require('child_process');
+'use strict';
 
-function walk(dir, out = []) {
-  for (const name of fs.readdirSync(dir)) {
-    const p = path.join(dir, name);
-    const st = fs.statSync(p);
-    if (st.isDirectory()) {
-      if (name === 'node_modules') continue;
-      walk(p, out);
-    } else if (name.endsWith('.js')) {
-      out.push(p);
+const fs = require('node:fs');
+const path = require('node:path');
+const { spawnSync } = require('node:child_process');
+
+function collectFiles(dir, files = []) {
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    if (entry.name === 'node_modules') continue;
+
+    const fullPath = path.join(dir, entry.name);
+
+    if (entry.isDirectory()) {
+      collectFiles(fullPath, files);
+    } else if (entry.isFile() && entry.name.endsWith('.js')) {
+      files.push(fullPath);
     }
   }
-  return out;
+
+  return files;
 }
 
-const root = path.join(__dirname, '..', 'engine');
-if (!fs.existsSync(root)) {
-  console.error('engine/ não encontrado');
+const engineDir = path.join(__dirname, '..', 'engine');
+
+if (!fs.existsSync(engineDir)) {
+  console.error('ERRO: diretorio engine/ nao encontrado.');
   process.exit(1);
 }
 
-const files = walk(root);
-let failed = 0;
-for (const f of files) {
-  try {
-    execFileSync(process.execPath, ['--check', f], { stdio: ['ignore', 'pipe', 'pipe'] });
-  } catch (e) {
-    failed += 1;
-    console.error(`FAIL ${f}`);
-    if (e.stderr) process.stderr.write(e.stderr);
+const files = collectFiles(engineDir);
+let failures = 0;
+
+for (const file of files) {
+  const result = spawnSync(process.execPath, ['--check', file], {
+    encoding: 'utf8'
+  });
+
+  if (result.error || result.status !== 0) {
+    failures++;
+    console.error(`\nFAIL ${path.relative(process.cwd(), file)}`);
+
+    if (result.error) console.error(result.error.message);
+    if (result.stderr) console.error(result.stderr.trim());
+    if (result.stdout) console.error(result.stdout.trim());
   }
 }
 
-if (failed) {
-  console.error(`\nlint: ${failed}/${files.length} arquivo(s) com erro de sintaxe`);
+console.log(`\nArquivos verificados: ${files.length}`);
+console.log(`Falhas: ${failures}`);
+
+if (failures > 0) {
+  console.error('LINT REPROVADO.');
   process.exit(1);
 }
-console.log(`lint ok — ${files.length} arquivos JS (node --check)`);
+
+console.log('LINT BACKEND APROVADO.');

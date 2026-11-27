@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -6,6 +6,7 @@ import {
   LayoutDashboard,
   LifeBuoy,
   Building2,
+  Activity,
   Users,
   ArrowLeft,
   Shield,
@@ -19,6 +20,7 @@ const adminNavItems = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard, exact: true },
   { href: "/admin/support", label: "Suporte", icon: LifeBuoy },
   { href: "/admin/companies", label: "Empresas", icon: Building2 },
+  { href: "/admin/monitoramento", label: "Monitoramento", icon: Activity },
   { href: "/admin/users", label: "Usuarios", icon: Users },
 ];
 

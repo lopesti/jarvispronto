@@ -1,5 +1,4 @@
-const assert = require('assert');
-const crypto = require('crypto');
+﻿const crypto = require('crypto');
 
 function safeEqual(a, b) {
   const ba = Buffer.from(String(a || ''));
@@ -8,7 +7,17 @@ function safeEqual(a, b) {
   return crypto.timingSafeEqual(ba, bb);
 }
 
-assert.strictEqual(safeEqual('secret', 'secret'), true);
-assert.strictEqual(safeEqual('secret', 'wrong'), false);
-assert.strictEqual(safeEqual('', 'x'), false);
-console.log('webhook-token.test.js OK');
+describe('comparação segura de tokens', () => {
+  test('aceita tokens iguais', () => {
+    expect(safeEqual('secret', 'secret')).toBe(true);
+  });
+
+  test('rejeita tokens diferentes', () => {
+    expect(safeEqual('secret', 'wrong')).toBe(false);
+  });
+
+  test('rejeita comprimentos diferentes e valores vazios', () => {
+    expect(safeEqual('', 'x')).toBe(false);
+    expect(safeEqual('abc', 'abcd')).toBe(false);
+  });
+});

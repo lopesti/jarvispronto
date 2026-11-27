@@ -1,4 +1,4 @@
-require('dotenv').config({ path: require('path').resolve(__dirname, '../.env') });
+﻿require('dotenv').config({ path: require('path').resolve(__dirname, '../.env') });
 const express = require('express');
 const cors = require('cors');
 const rateLimit = require('express-rate-limit');
@@ -7,9 +7,9 @@ const authMiddleware = require('./middlewares/auth');
 const requireSuperadmin = require('./middlewares/requireSuperadmin');
 const { promoteFromEnv: promoteSuperadmin } = require('./services/superadminService');
 
-// ═══════════════════════════════════════════════════════════════
-//  Validação de env obrigatórios
-// ═══════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+//  ValidaÃ§Ã£o de env obrigatÃ³rios
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 const requiredEnv = ['JWT_SECRET', 'DATABASE_URL'];
 const missing = requiredEnv.filter((key) => !process.env[key]);
 if (missing.length) {
@@ -24,9 +24,9 @@ try { app.use(require('helmet')({ contentSecurityPolicy: false })); } catch (_) 
 app.use(require('./middlewares/requestId'));
 const PORT = process.env.PORT || 3000;
 
-// ═══════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 //  Modo fila vs inline
-// ═══════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 const useQueue = process.env.USE_MESSAGE_QUEUE === '1';
 
 if (process.env.TRUST_PROXY === '1') {
@@ -36,10 +36,10 @@ if (process.env.TRUST_PROXY === '1') {
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true }));
 
-// ═══════════════════════════════════════════════════════════════
-//  CORS — allowlist estrita (BUG-004 CORRIGIDO)
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+//  CORS â€” allowlist estrita (BUG-004 CORRIGIDO)
 //  + aceita *.trycloudflare.com (Cloudflare Tunnel quick)
-// ═══════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 const allowedOrigins = (
     process.env.CORS_ORIGINS ||
     'http://localhost,http://localhost:80,http://127.0.0.1,http://localhost:3000,http://localhost:3001,https://localhost,https://127.0.0.1'
@@ -58,7 +58,7 @@ app.use(
             if (/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)) {
                 return cb(null, true);
             }
-            // ─── Cloudflare Tunnel (quick tunnels trycloudflare.com) ───
+            // â”€â”€â”€ Cloudflare Tunnel (quick tunnels trycloudflare.com) â”€â”€â”€
             if (/^https:\/\/[a-z0-9-]+\.trycloudflare\.com$/.test(origin)) {
                 return cb(null, true);
             }
@@ -76,9 +76,9 @@ app.use((err, req, res, next) => {
     return next(err);
 });
 
-// ═══════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 //  Rate limiting
-// ═══════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 const apiLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
     max: isProd ? 3000 : 30000,
@@ -96,27 +96,29 @@ const authLimiter = rateLimit({
 app.use('/api', apiLimiter);
 app.use('/auth', authLimiter);
 
-// ═══════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 //  Rotas
-// ═══════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 app.use('/auth', require('./routes/auth'));
 
 app.use('/api/users', authMiddleware, require('./routes/users'));
 app.use('/api/produtos', authMiddleware, require('./routes/produtos'));
 app.use('/api/conversations', authMiddleware, require('./routes/conversations'));
 app.use('/api/etiquetas', authMiddleware, require('./routes/etiquetas'));
-// F-12: engine/simulation e routes/simulation removidos (código morto)
+// F-12: simulation desabilitada
+// app.use('/api/simulation', authMiddleware, require('./routes/simulation'));
 app.use('/api/channels', authMiddleware, require('./routes/channels'));
 app.use('/api/companies', authMiddleware, require('./routes/companies'));
 app.use('/api/whatsapp', authMiddleware, require('./routes/whatsapp'));
 
-// ─── Suporte (empresa) e Admin (superadmin) — FASE 3.1 ───
+// â”€â”€â”€ Suporte (empresa) e Admin (superadmin) â€” FASE 3.1 â”€â”€â”€
 app.use('/api/support', authMiddleware, require('./routes/support'));
 app.use('/api/admin/support', authMiddleware, requireSuperadmin, require('./routes/adminSupport'));
 app.use('/api/admin/companies', authMiddleware, requireSuperadmin, require('./routes/adminCompanies'));
+app.use('/api/admin/monitoring', authMiddleware, requireSuperadmin, require('./routes/adminMonitoring'));
 app.use('/api/admin/users', authMiddleware, requireSuperadmin, require('./routes/adminUsers'));
 
-// ─── SaaS: planos, assinatura e uso ───
+// â”€â”€â”€ SaaS: planos, assinatura e uso â”€â”€â”€
 app.use('/api', require('./routes/billing'));
 app.use('/api/crm', require('./routes/crm'));
 
@@ -126,12 +128,12 @@ if (process.env.NODE_ENV !== 'production' && process.env.ENABLE_INTERNAL_ROUTES 
     app.use('/internal', require('./routes/internal'));
 } else {
     const loggerBoot = require('./utils/logger');
-    loggerBoot.info('[boot] /internal desabilitado (produção)');
+    loggerBoot.info('[boot] /internal desabilitado (produÃ§Ã£o)');
 }
 
-// ═══════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 //  Health check + Metrics
-// ═══════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 app.get('/metrics', (req, res) => {
     const crypto = require('crypto');
     const expected = process.env.METRICS_TOKEN || process.env.INTERNAL_SIM_TOKEN || '';
@@ -161,16 +163,16 @@ app.get('/health', (req, res) => {
     });
 });
 
-// ═══════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 //  404 handler JSON (BUG-076)
-// ═══════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 app.use((req, res) => {
     res.status(404).json({ error: 'Not Found', path: req.originalUrl });
 });
 
-// ═══════════════════════════════════════════════════════════════
-//  WhatsApp — modo fila vs inline
-// ═══════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+//  WhatsApp â€” modo fila vs inline
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 const whatsappService = require('./services/whatsappService');
 
 if (useQueue) {
@@ -193,9 +195,9 @@ if (useQueue) {
     }
 }
 
-// ═══════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 //  O-03: shutdown gracioso (SIGINT, SIGTERM, uncaughtException)
-// ═══════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 let httpServer = null;
 let shuttingDown = false;
 
@@ -207,7 +209,7 @@ async function shutdown(signal) {
 
     // Timeout de seguranca: se algo travar, forca saida em 10s
     const forceExit = setTimeout(() => {
-        logger.error('[shutdown] Timeout apos 10s — forcando saida');
+        logger.error('[shutdown] Timeout apos 10s â€” forcando saida');
         process.exit(1);
     }, 10000);
     forceExit.unref();
@@ -259,9 +261,9 @@ process.on('unhandledRejection', (reason) => {
     shutdown('unhandledRejection');
 });
 
-// ═══════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 //  Migrations + Listen
-// ═══════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 const { runMigrations } = require('./models/migrate');
 
 (async () => {

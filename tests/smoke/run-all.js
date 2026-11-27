@@ -23,6 +23,6 @@ for (const c of camadas) {
 }
 
 console.log('\n\x1b[32m═══════════════════════════════════════\x1b[0m');
-console.log('\x1b[32m✅ Todas as camadas C1-C3-C5 passaram\x1b[0m');
+console.log('\x1b[32m✅ Todas as camadas C1-C2-C3-C5 passaram\x1b[0m');
 console.log('\x1b[32m═══════════════════════════════════════\x1b[0m');
 process.exit(0);
